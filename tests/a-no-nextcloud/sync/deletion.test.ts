@@ -62,11 +62,12 @@ describe('SyncEngine.processRemoteDeletion', () => {
   it('T3: an unresolved abstract file that exists is removed via adapter.remove', async () => {
     const { run, trashFile, remove, deleteFile } = makeEngine({ resolved: null, exists: true });
 
-    await run('.obsidian/snippets/x.css');
+    // A normal vault path (outside any dotfolder) so the YANC dotfolder exclusion does not swallow it.
+    await run('Notes/orphan.css');
 
     expect(trashFile).not.toHaveBeenCalled();
-    expect(remove).toHaveBeenCalledWith('.obsidian/snippets/x.css');
-    expect(deleteFile).toHaveBeenCalledWith('.obsidian/snippets/x.css');
+    expect(remove).toHaveBeenCalledWith('Notes/orphan.css');
+    expect(deleteFile).toHaveBeenCalledWith('Notes/orphan.css');
   });
 
   // T4: untracked (null) and absent -> delete nothing, but StateDB still converges (invariant C4 / FR-005)

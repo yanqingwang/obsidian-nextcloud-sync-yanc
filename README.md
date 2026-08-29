@@ -1,4 +1,8 @@
-# Nextcloud Sync for Obsidian
+# Nextcloud sync YANC (fork)
+
+> **This is a fork — "Nextcloud sync YANC" (v1.0.0).**
+> Forked from [siosig/obsidian-nextcloudsync](https://github.com/siosig/obsidian-nextcloudsync) at upstream v0.7.43.
+> It adds **automatic exclusion of hidden files** (`.env`, `.gitignore`, `.DS_Store`, …) **and dotfolders** (`.git`, `.hidden`, `.obsidian`, …) — both ON by default, each with its own opt-out toggle in settings. Upstream declined to merge this change, so it lives here as a maintained fork. All credit for the core sync engine belongs to the original author, Daisuke ITO / siosig.
 
 **Good news for anyone working across multiple desktops and mobile devices.**
 
@@ -22,8 +26,8 @@ Most "WebDAV sync" plugins treat the server as a dumb file store: they compare m
 
 This plugin is still young and some behaviour can be rough around the edges. **Please tell me what you run into — it genuinely helps.** Whether something broke, something's missing, or you just have a thought after using it, I'd love to hear from you (impressions especially make my day!):
 
-- 🐛 **Report a bug** → [GitHub Issues](https://github.com/siosig/obsidian-nextcloudsync/issues)
-- 🙋‍♂️ **Request a feature / share your impressions** → [GitHub Discussions](https://github.com/siosig/obsidian-nextcloudsync/discussions)
+- 🐛 **Report a bug** → [GitHub Issues](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/issues)
+- 🙋‍♂️ **Request a feature / share your impressions** → [GitHub Discussions](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/discussions)
 
 ---
 
@@ -31,11 +35,13 @@ This plugin is still young and some behaviour can be rough around the edges. **P
 
 ---
 
-## What's new in this release (0.7.43)
+## What's new in Nextcloud sync YANC 1.0.0
 
-- **Internal restructuring only — nothing looks or behaves differently (0.7.43)** — the sync engine has been split into focused modules, and the decisions it makes have been separated from the file and network operations around them. Syncing, conflict resolution, deletion, folder handling and Mirror from remote all work exactly as before. The change is invisible by design; what it buys is that far more of the plugin can now be tested directly, including server responses that previously could only be exercised against a live Nextcloud.
+- **Forked from upstream v0.7.43** — same rock-solid bidirectional Vault ↔ Nextcloud sync engine.
+- **Hidden-file exclusion** — files whose name starts with `.` (`.env`, `.gitignore`, `.DS_Store`, …) are never uploaded or downloaded. ON by default; opt out via *Settings → Exclude hidden files*.
+- **Dotfolder exclusion** — folders whose name starts with `.` (`.git`, `.hidden`, …) and everything inside them are never synced. This generalizes the always-on `.git`/`.trash` exclusion to all dotfolders. ON by default; opt out via *Settings → Exclude dotfolders*.
 
-For the full version history of every release, see the **[changelog](CHANGELOG.md)**.
+For the full upstream version history, see the **[changelog](CHANGELOG.md)**.
 
 ---
 
@@ -280,8 +286,8 @@ These tests exist specifically to prevent sync-inconsistency states — **data l
 
 Issues and pull requests are welcome on [GitHub](https://github.com/siosig/obsidian-nextcloudsync). The plugin is still maturing, so feedback of any kind is especially valuable:
 
-- 🐛 **Report a bug** → [GitHub Issues](https://github.com/siosig/obsidian-nextcloudsync/issues)
-- 🙋‍♂️ **Request a feature / share your impressions** → [GitHub Discussions](https://github.com/siosig/obsidian-nextcloudsync/discussions)
+- 🐛 **Report a bug** → [GitHub Issues](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/issues)
+- 🙋‍♂️ **Request a feature / share your impressions** → [GitHub Discussions](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/discussions)
 
 ---
 

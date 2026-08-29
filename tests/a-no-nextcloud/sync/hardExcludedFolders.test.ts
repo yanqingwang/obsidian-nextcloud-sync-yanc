@@ -14,18 +14,23 @@ import { DIR_BREAKER_REPORT_FILENAME, FILE_BREAKER_REPORT_FILENAME } from '../..
  *    (discussion #6). The settings UI already DOCUMENTS these dotfolders as excluded; this makes
  *    the implementation match that promised contract.
  *
- * Scope guard: the exclusion is a TARGETED list, not a blanket "all dotfolders" rule. Non-machine
- * dotfolders/files at the vault root (e.g. .archive/, .env) must still sync (Task 7 / dotPaths).
+ * YANC fork: beyond the targeted .git/.trash list, hidden files (basename starts with ".") and ALL
+ * dotfolders (any segment starts with ".") are excluded by DEFAULT via the "Exclude hidden files" /
+ * "Exclude dotfolders" toggles. Each is independently opt-out. The assertions below use the YANC
+ * defaults.
  */
 
-function isSystemExcluded(path: string): boolean {
+function isSystemExcluded(path: string, overrides: Partial<DavSyncSettings> = {}): boolean {
   const settings = {
     configDir: '.obsidian',
     logsFolder: '',
     loggingEnabled: false,
     syncConfigFolder: false,
     excludedFolders: [],
+    excludeHiddenFiles: true,
+    excludeDotFolders: true,
     configSync: { appearance: false, themesSnippets: false, hotkeys: false, corePlugins: false, bookmarks: false },
+    ...overrides,
   } as unknown as DavSyncSettings;
   const engine = new SyncEngine({
     app: {}, settings, configDir: '.obsidian', pluginDir: '.obsidian/plugins/nextcloud-sync',
@@ -47,17 +52,40 @@ describe('[SPEC:EXCL-HARD-1] hard-excluded machine folders (.git / .trash)', () 
     expect(isSystemExcluded('.git/objects/ab/cdef')).toBe(true);
   });
 
-  it('preserves sync of non-machine root dot content (Task 7: .archive/, .env)', () => {
-    expect(isSystemExcluded('.archive/note.md')).toBe(false);
-    expect(isSystemExcluded('.env')).toBe(false);
+  it('YANC: the hard .git/.trash list still matches at a folder boundary — non-dot same-prefix siblings are NOT excluded', () => {
+    // `git` / `trash` (no leading dot) are ordinary folders, not the machine-managed ones → syncable.
+    expect(isSystemExcluded('git/config')).toBe(false);
+    expect(isSystemExcluded('trash/x.md')).toBe(false);
+    // `.gitbackup` is a DIFFERENT dotfolder — it falls under the dotfolder (not .git) exclusion.
+    expect(isSystemExcluded('.gitbackup/note.md')).toBe(true);
   });
 
-  it('matches at a folder boundary — siblings and same-prefix files are NOT excluded', () => {
-    // `.trashcan/` and `.github/` merely share a prefix; they are distinct folders → syncable.
-    expect(isSystemExcluded('.trashcan/x.md')).toBe(false);
-    expect(isSystemExcluded('.github/workflows/ci.yml')).toBe(false);
-    // `.gitignore` is a user file, not the `.git` folder → syncable.
-    expect(isSystemExcluded('.gitignore')).toBe(false);
+  it('YANC: excludes hidden files (basename starts with ".") by default', () => {
+    expect(isSystemExcluded('.env')).toBe(true);
+    expect(isSystemExcluded('.gitignore')).toBe(true);
+    expect(isSystemExcluded('secret/.env')).toBe(true);
+    expect(isSystemExcluded('.DS_Store')).toBe(true);
+  });
+
+  it('YANC: excludes dotfolders and their subtree by default', () => {
+    expect(isSystemExcluded('.archive/note.md')).toBe(true);
+    expect(isSystemExcluded('.trashcan/x.md')).toBe(true);
+    expect(isSystemExcluded('.github/workflows/ci.yml')).toBe(true);
+    expect(isSystemExcluded('Notes/.hidden/deep/doc.md')).toBe(true);
+  });
+
+  it('YANC: opting out of the exclusions restores sync of dot content', () => {
+    // A root dotfile (.env) and a hidden file in a normal folder (secret/.env) are caught by BOTH
+    // rules, so both toggles must be OFF to sync them again.
+    expect(isSystemExcluded('.env', { excludeHiddenFiles: false, excludeDotFolders: false })).toBe(false);
+    expect(isSystemExcluded('.gitignore', { excludeHiddenFiles: false, excludeDotFolders: false })).toBe(false);
+    expect(isSystemExcluded('secret/.env', { excludeHiddenFiles: false, excludeDotFolders: false })).toBe(false);
+    // Dotfolders need excludeDotFolders OFF.
+    expect(isSystemExcluded('.archive/note.md', { excludeHiddenFiles: false, excludeDotFolders: false })).toBe(false);
+    expect(isSystemExcluded('.github/workflows/ci.yml', { excludeHiddenFiles: false, excludeDotFolders: false })).toBe(false);
+    // Hard .git/.trash stay excluded even with both toggles off (the targeted hard list is independent).
+    expect(isSystemExcluded('.git/config', {})).toBe(true);
+    expect(isSystemExcluded('.trash/x.md', {})).toBe(true);
   });
 
   it('does not touch ordinary vault files', () => {

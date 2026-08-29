@@ -167,6 +167,19 @@ export interface DavSyncSettings {
    */
   excludedFolders: string[];
   /**
+   * When ON, files whose name starts with "." (hidden files, e.g. `.env`, `.gitignore`,
+   * `.DS_Store`) are never synced — neither uploaded nor downloaded. ON by default; turn OFF
+   * to sync hidden files. Additive on top of the permanent hard exclusions. (YANC fork.)
+   */
+  excludeHiddenFiles: boolean;
+  /**
+   * When ON, folders whose name starts with "." (dotfolders, e.g. `.obsidian`, `.git`, `.hidden`)
+   * and everything beneath them are never synced. ON by default: a generalization of the permanent
+   * `.git`/`.trash` hard exclusion to ALL dotfolders, so dot content stays device-local out of the
+   * box. Turn OFF to sync dotfolders again. (YANC fork.)
+   */
+  excludeDotFolders: boolean;
+  /**
    * How to resolve a conflict on a markdown file's frontmatter block, INDEPENDENTLY of the body
    * (feature 047). Same five strategies as `autoMergeFileStrategy`. `merge` = semantic merge (arrays
    * base-aware set-merge, scalars/objects/parse-failure tie-broken by latest-mtime); the other four
@@ -233,6 +246,8 @@ export const DEFAULT_SETTINGS: DavSyncSettings = {
   autoMergeFileStrategy: 'merge',
   otherFileStrategy: 'latest-mtime',
   excludedFolders: [],
+  excludeHiddenFiles: true,
+  excludeDotFolders: true,
   frontmatterStrategy: 'merge',
   // Feature 048: default keeps the 047 behaviour — a real merge conflict writes both-side markers.
   conflictStrategy: 'conflict-markers',

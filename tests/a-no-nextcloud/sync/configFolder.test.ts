@@ -41,9 +41,14 @@ const CONFIG_DIR = '.obsidian';
 const PLUGIN_DIR = `${CONFIG_DIR}/plugins/nextcloud-sync`;
 
 function settings(syncConfigFolder: boolean, configSync: Partial<ConfigSyncCategories>): DavSyncSettings {
+  // YANC fork: config-folder sync is only possible when dotfolder exclusion is OFF, because
+  // `.obsidian` itself is a dotfolder (see the "Exclude dotfolders" setting). These tests exercise
+  // the config-sync logic, so they opt out of the dotfolder exclusion explicitly.
   return {
     configDir: CONFIG_DIR,
     syncConfigFolder,
+    excludeDotFolders: false,
+    excludeHiddenFiles: false,
     configSync: { bookmarks: false, others: false, ...configSync },
   } as unknown as DavSyncSettings;
 }

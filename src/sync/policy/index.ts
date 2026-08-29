@@ -14,7 +14,7 @@
 // logic below can be exercised at its boundaries at all.
 import { FileState } from '../../types';
 import { SIGNATURE_SAFETY_WINDOW_MS } from '../../util/limits';
-import { isUnderExcludedFolder, HARD_EXCLUDED_FOLDERS } from '../../util/excludedFolders';
+import { isUnderExcludedFolder, HARD_EXCLUDED_FOLDERS, isHiddenFile, isUnderDotFolder } from '../../util/excludedFolders';
 import { isSyncTmpPath } from '../../data/LocalAdapter';
 import { DIR_BREAKER_REPORT_FILENAME, FILE_BREAKER_REPORT_FILENAME } from '../../ui/breakerReport';
 
@@ -98,6 +98,10 @@ export interface SystemExclusionContext {
   isConfigPathIncluded(path: string): boolean;
   /** Whether the path is this device's own log file while logging is on. */
   isActiveLogFile?(path: string): boolean;
+  /** (YANC fork) When ON, files whose basename starts with "." are never synced. */
+  excludeHiddenFiles?: boolean;
+  /** (YANC fork) When ON, paths under any dotfolder (segment starts with ".") are never synced. */
+  excludeDotFolders?: boolean;
 }
 
 /**
@@ -130,6 +134,14 @@ export function isSystemExcluded(path: string, ctx: SystemExclusionContext): boo
   // path before the config-folder logic so it covers ordinary vault files too. This is an
   // additive layer on top of the hard exclusions above — those always take precedence.
   if (isUnderExcludedFolder(path, ctx.excludedFolders)) return true;
+  // (YANC fork) Opt-in exclusion of hidden files (basename starts with "."): `.env`, `.gitignore`,
+  // `.DS_Store`, … Independent of the folder rule below — a hidden file inside an ordinary folder is
+  // still excluded. ON by default.
+  if (ctx.excludeHiddenFiles && isHiddenFile(path)) return true;
+  // (YANC fork) Opt-in exclusion of dotfolders (any path segment starts with ".") and their whole
+  // subtree: `.obsidian`, `.git`, `.hidden/x`. Generalizes the permanent `.git`/`.trash` hard
+  // exclusion to ALL dotfolders. ON by default.
+  if (ctx.excludeDotFolders && isUnderDotFolder(path)) return true;
   // Ordinary vault files (outside the config folder) are never system-excluded.
   if (!ctx.isUnderConfigDir(path)) return false;
   // Inside the config folder: excluded unless an enabled config-sync category includes it.

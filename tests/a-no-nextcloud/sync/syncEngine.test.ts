@@ -317,6 +317,9 @@ describe('SyncEngine.processRemoteDeletion — out-of-scope safety', () => {
     const settings = {
       configDir: '.obsidian',
       syncConfigFolder: bookmarks,
+      // YANC fork: opt out of dotfolder exclusion so the config folder (`.obsidian`) is in scope.
+      excludeDotFolders: false,
+      excludeHiddenFiles: false,
       configSync: { appearance: false, themesSnippets: false, hotkeys: false, corePlugins: false, bookmarks },
     } as unknown;
     const engineOpts = {

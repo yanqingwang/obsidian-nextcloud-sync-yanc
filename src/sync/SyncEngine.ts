@@ -1613,6 +1613,8 @@ export class SyncEngine {
       isUnderConfigDir: (p) => this.configSync.isUnderConfigDir(p),
       isConfigPathIncluded: (p) => this.configSync.isIncluded(p),
       isActiveLogFile: this.opts.isActiveLogFile,
+      excludeHiddenFiles: this.opts.settings?.excludeHiddenFiles ?? true,
+      excludeDotFolders: this.opts.settings?.excludeDotFolders ?? true,
     });
   }
 }

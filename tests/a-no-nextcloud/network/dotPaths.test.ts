@@ -90,7 +90,7 @@ const VAULT_FILES = [
 ];
 
 describe('dot-paths: collectDotPaths supplements Vault-enumerated files (Task 7)', () => {
-  it('scanLocalFiles includes .env and .archive/note.md from adapter', async () => {
+  it('scanLocalFiles excludes .env and .archive/note.md by default (YANC dot-exclusion)', async () => {
     const rawAdapter = makeDataAdapterWithDotPaths();
     const vault = makeVault(VAULT_FILES, rawAdapter);
     const localAdapter = new LocalAdapter(rawAdapter, vault);
@@ -100,11 +100,11 @@ describe('dot-paths: collectDotPaths supplements Vault-enumerated files (Task 7)
       scanLocalFiles(): Promise<Map<string, { size: number; mtime: number }>>;
     }).scanLocalFiles();
 
-    // Dot paths from adapter must appear.
-    expect(result.has('.env')).toBe(true);
-    expect(result.get('.env')).toEqual({ size: 42, mtime: 1001 });
-    expect(result.has('.archive/note.md')).toBe(true);
-    expect(result.get('.archive/note.md')).toEqual({ size: 100, mtime: 2002 });
+    // YANC fork: collectDotPaths still re-enumerates these dot paths from the adapter, but the
+    // default dot-exclusion (excludeHiddenFiles / excludeDotFolders) filters them out, so they must
+    // NOT appear in the scan.
+    expect(result.has('.env')).toBe(false);
+    expect(result.has('.archive/note.md')).toBe(false);
   });
 
   it('[SPEC:EXCL-HARD-1] scanLocalFiles does NOT include hard-excluded .git/.trash (collectDotPaths skips them)', async () => {
@@ -118,12 +118,12 @@ describe('dot-paths: collectDotPaths supplements Vault-enumerated files (Task 7)
     }).scanLocalFiles();
 
     // .git and .trash are re-enumerated at the vault root by collectDotPaths, but isSystemExcluded
-    // filters them out — the whole tree is skipped, so no file under them is synced.
+    // filters them out — the whole tree is skipped, so no file under them is synced. The same
+    // default dot-exclusion also removes other non-machine dot content (YANC fork).
     expect(result.has('.git/config')).toBe(false);
     expect(result.has('.trash/deleted.md')).toBe(false);
-    // Regression: non-machine root dot content is still present.
-    expect(result.has('.env')).toBe(true);
-    expect(result.has('.archive/note.md')).toBe(true);
+    expect(result.has('.env')).toBe(false);
+    expect(result.has('.archive/note.md')).toBe(false);
   });
 
   it('scanLocalFiles still includes normal Vault-tracked files', async () => {
@@ -155,7 +155,7 @@ describe('dot-paths: collectDotPaths supplements Vault-enumerated files (Task 7)
     expect(result.has('.obsidian/appearance.json')).toBe(false);
   });
 
-  it('collectLocalStats includes .env and .archive/note.md from adapter', async () => {
+  it('collectLocalStats excludes .env and .archive/note.md by default (YANC dot-exclusion)', async () => {
     const rawAdapter = makeDataAdapterWithDotPaths();
     const vault = makeVault(VAULT_FILES, rawAdapter);
     const localAdapter = new LocalAdapter(rawAdapter, vault);
@@ -166,11 +166,9 @@ describe('dot-paths: collectDotPaths supplements Vault-enumerated files (Task 7)
       collectLocalStats(dir: string, out: Map<string, { size: number; mtime: number }>): Promise<void>;
     }).collectLocalStats('', out);
 
-    // Dot paths from adapter must appear.
-    expect(out.has('.env')).toBe(true);
-    expect(out.get('.env')).toEqual({ size: 42, mtime: 1001 });
-    expect(out.has('.archive/note.md')).toBe(true);
-    expect(out.get('.archive/note.md')).toEqual({ size: 100, mtime: 2002 });
+    // YANC fork: dot content is excluded by default, so it must not appear in the collected stats.
+    expect(out.has('.env')).toBe(false);
+    expect(out.has('.archive/note.md')).toBe(false);
   });
 
   it('collectLocalStats still includes normal Vault-tracked files', async () => {
