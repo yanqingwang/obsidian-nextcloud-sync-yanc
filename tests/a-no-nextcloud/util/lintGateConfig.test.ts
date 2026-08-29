@@ -33,13 +33,14 @@ describe('[SPEC:SWC-2] src/**/*.ts contains no createEl(\'div\'|\'span\', ...) c
   });
 });
 
-// Feature 062: js-yaml is unused in production code (parseYaml/stringifyYaml cover it) and is
-// only consumed by test doubles, so it belongs in devDependencies, not dependencies.
-describe('[SPEC:SWC-4] js-yaml is classified as a devDependency, not a production dependency', () => {
-  it('[SPEC:SWC-4] package.json keeps js-yaml out of dependencies and in devDependencies', () => {
+// Feature 062: raw yaml parsing is unused in production code (Obsidian's parseYaml/stringifyYaml
+// cover it); the `yaml` package is only consumed by test doubles, so it belongs in devDependencies,
+// not dependencies.
+describe('[SPEC:SWC-4] yaml is classified as a devDependency, not a production dependency', () => {
+  it('[SPEC:SWC-4] package.json keeps yaml out of dependencies and in devDependencies', () => {
     const pkg = JSON.parse(readFileSync(join(REPO_ROOT, 'package.json'), 'utf8'));
-    expect(pkg.dependencies).not.toHaveProperty('js-yaml');
-    expect(pkg.devDependencies).toHaveProperty('js-yaml');
+    expect(pkg.dependencies).not.toHaveProperty('yaml');
+    expect(pkg.devDependencies).toHaveProperty('yaml');
   });
 });
 

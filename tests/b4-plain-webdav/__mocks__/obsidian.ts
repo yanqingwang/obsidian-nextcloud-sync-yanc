@@ -2,7 +2,7 @@
 // Identical surface to tests/__mocks__/obsidian.ts EXCEPT requestUrl is backed by
 // Node.js native fetch so the tests exercise a real server. Shared verbatim with the b-1 mock; the
 // only difference is which server the b-4 harness points it at (Apache mod_dav, not Nextcloud).
-import { load, dump } from 'js-yaml';
+import { parse, stringify } from 'yaml';
 
 export class Plugin {
   app: App;
@@ -206,18 +206,18 @@ export const Platform = {
 
 // ── Feature 043: official frontmatter/YAML APIs the merge code depends on. Ported verbatim from the
 // a-layer double (tests/a-no-nextcloud/support/obsidian.ts) so b1 exercises the SAME merge behaviour
-// against a live server. Backed by js-yaml internally (test double only; production uses Obsidian's).
+// against a live server. Backed by yaml internally (test double only; production uses Obsidian's).
 
 /** Test double for Obsidian's `parseYaml`. Obsidian returns null for empty/whitespace input. */
 export function parseYaml(s: string): any {
   if (s == null) return null;
   if (s.trim() === '') return null;
-  return load(s);
+  return parse(s);
 }
 
 /** Test double for Obsidian's `stringifyYaml`. `lineWidth: -1` disables folding for lossless round-trips. */
 export function stringifyYaml(obj: any): string {
-  return dump(obj, { lineWidth: -1 });
+  return stringify(obj, { lineWidth: -1 });
 }
 
 /** Mirror of Obsidian's `FrontMatterInfo` (obsidian.d.ts). */

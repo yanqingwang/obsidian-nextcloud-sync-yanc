@@ -11,6 +11,14 @@ and folded into the next stable entry.
 
 > A Japanese translation is available at [`CHANGELOG.ja.md`](CHANGELOG.ja.md).
 
+## [1.0.1] - 2026-08-29
+
+### Fixed
+- Cleared the Obsidian community-store review warnings so the plugin passes automated listing checks:
+  - Added a recognized single-copyright `MIT` license; upstream attribution is preserved in a new `NOTICE` file.
+  - Removed the `js-yaml` dependency. Test mocks now use the `yaml` package, and production already relied on Obsidian's bundled `parseYaml`/`stringifyYaml` (so `js-yaml` was never actually bundled).
+  - Implemented `PluginSettingTab.getSettingDefinitions()` (the declarative settings API) so every setting is searchable in Obsidian's settings search on 1.13.0+. `display()`/`render()` is kept as the pre-1.13.0 fallback, so behaviour is unchanged on 1.11.4–1.12.x.
+
 ## [1.0.0] - 2026-08-29
 
 Forked from [obsidian-nextcloudsync](https://github.com/siosig/obsidian-nextcloudsync) v0.7.43 — the "YANC" fork.
@@ -401,6 +409,7 @@ Initial public releases (0.2.0 – 0.2.1) of the Nextcloud-specific sync engine:
 - **Clearer conflict outcomes in the dry-run** — the first-sync preview now explains what conflict resolution will produce, and each conflicted file is clickable to preview the exact merged before/after result.
 - **Faster than generic WebDAV** — by diffing content hashes against Nextcloud's `sync-token`, each sync transfers only what actually changed instead of recursively walking the entire remote tree on every run, so syncs complete noticeably faster than modification-time-based WebDAV plugins.
 
+[1.0.1]: https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/releases/tag/1.0.1
 [1.0.0]: https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/releases/tag/1.0.0
 [0.7.43]: https://github.com/siosig/obsidian-nextcloudsync/releases/tag/0.7.43
 [0.7.42]: https://github.com/siosig/obsidian-nextcloudsync/releases/tag/0.7.42

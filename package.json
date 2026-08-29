@@ -34,7 +34,6 @@
     "@secretlint/secretlint-rule-pattern": "^13.0.2",
     "@secretlint/secretlint-rule-preset-recommend": "^13.0.2",
     "@types/jest": "^30.0.0",
-    "@types/js-yaml": "^4.0.9",
     "@types/mocha": "^10.0.10",
     "@types/node": "^26.0.0",
     "@wdio/appium-service": "^9.31.2",
@@ -48,7 +47,6 @@
     "eslint": "^10.5.0",
     "eslint-plugin-obsidianmd": "^0.4.1",
     "jest": "^30.4.2",
-    "js-yaml": "^5.2.2",
     "mocha": "^11.7.6",
     "obsidian": "^1.13.1",
     "secretlint": "^13.0.2",
@@ -56,7 +54,8 @@
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.61.1",
     "wdio-obsidian-reporter": "^3.2.0",
-    "wdio-obsidian-service": "^3.2.0"
+    "wdio-obsidian-service": "^3.2.0",
+    "yaml": "^2.9.0"
   },
   "dependencies": {
     "node-diff3": "^3.2.1",

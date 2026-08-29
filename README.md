@@ -35,7 +35,9 @@ This plugin is still young and some behaviour can be rough around the edges. **P
 
 ---
 
-## What's new in Nextcloud sync YANC (1.0.0)
+## What's new in Nextcloud sync YANC (1.0.1)
+
+> **1.0.1** is a release-hygiene update that clears the Obsidian community-store review warnings: a recognized `MIT` license, removal of the `js-yaml` dependency (the plugin never bundled it — it uses Obsidian's own YAML), and adoption of the declarative settings API so every setting is searchable on Obsidian 1.13.0+.
 
 - **Forked from upstream v0.7.43** — same rock-solid bidirectional Vault ↔ Nextcloud sync engine.
 - **Hidden-file exclusion** — files whose name starts with `.` (`.env`, `.gitignore`, `.DS_Store`, …) are never uploaded or downloaded. ON by default; opt out via *Settings → Exclude hidden files*.

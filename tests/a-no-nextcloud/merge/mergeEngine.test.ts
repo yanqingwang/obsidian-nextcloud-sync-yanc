@@ -201,7 +201,7 @@ function tagsIn(fmBlock: string): string[] {
   const out: string[] = [];
   for (let i = start + 1; i < lines.length; i++) {
     if (/^---\s*$/.test(lines[i])) break; // closing fence ends the frontmatter
-    const m = lines[i].match(/^\s+-\s*'?([^'\n]+?)'?\s*$/); // an indented list item under tags
+    const m = lines[i].match(/^\s+-\s*['"]?([^'"\n]+?)['"]?\s*$/); // an indented list item under tags (quote-agnostic)
     if (!m) break; // first non-item line (next key) ends the array
     out.push(m[1]);
   }

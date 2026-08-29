@@ -43,9 +43,6 @@ importers:
       '@types/jest':
         specifier: ^30.0.0
         version: 30.0.0
-      '@types/js-yaml':
-        specifier: ^4.0.9
-        version: 4.0.9
       '@types/mocha':
         specifier: ^10.0.10
         version: 10.0.10
@@ -85,9 +82,6 @@ importers:
       jest:
         specifier: ^30.4.2
         version: 30.4.2(@types/node@26.0.0)
-      js-yaml:
-        specifier: '>=5.2.2'
-        version: 5.2.2
       mocha:
         specifier: ^11.7.6
         version: 11.7.6
@@ -112,6 +106,9 @@ importers:
       wdio-obsidian-service:
         specifier: ^3.2.0
         version: 3.2.0(appium-uiautomator2-driver@8.5.0(@appium/logger@2.0.10)(@types/node@26.0.0)(appium@3.6.0(@types/node@26.0.0)))(appium@3.6.0(@types/node@26.0.0))(obsidian@1.13.1(@codemirror/state@6.5.0)(@codemirror/view@6.38.6))(webdriverio@9.31.2(yauzl@3.4.0))
+      yaml:
+        specifier: ^2.9.0
+        version: 2.9.0
 
 packages:
 
@@ -1185,9 +1182,6 @@ packages:
 
   '@types/jest@30.0.0':
     resolution: {integrity: sha512-XTYugzhuwqWjws0CVz8QpM36+T+Dz5mTEBKhNs/esGLnCIlGdRy+Dq78NRjd7ls7r8BC8ZRMOrKlkO1hU0JOwA==}
-
-  '@types/js-yaml@4.0.9':
-    resolution: {integrity: sha512-k4MGaQl5TGo/iipqb2UDG2UwjXziSWkh0uysQelTlJpX1qGlpUZYm8PnO4DxG1qBomtJUdYJ6qR6xdIah10JLg==}
 
   '@types/json-schema@7.0.15':
     resolution: {integrity: sha512-5+fP8P8MFNC+AyZCDxrB2pkZFPGzqQWUzpSeuuVLvm8VMcorNYavBqoFcxK8bQz4Qsbn4oUEEem4wDLfcysGHA==}
@@ -6322,8 +6316,6 @@ snapshots:
     dependencies:
       expect: 30.4.1
       pretty-format: 30.4.1
-
-  '@types/js-yaml@4.0.9': {}
 
   '@types/json-schema@7.0.15': {}
 
