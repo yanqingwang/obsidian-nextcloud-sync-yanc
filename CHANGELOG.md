@@ -11,6 +11,15 @@ and folded into the next stable entry.
 
 > A Japanese translation is available at [`CHANGELOG.ja.md`](CHANGELOG.ja.md).
 
+## [1.0.0] - 2026-08-29
+
+Forked from [obsidian-nextcloudsync](https://github.com/siosig/obsidian-nextcloudsync) v0.7.43 — the "YANC" fork.
+
+### Added
+- Default exclusion of hidden files (basename starts with `.`), e.g. `.env`, `.gitignore`, `.DS_Store`.
+- Default exclusion of all dotfolders (any path segment starts with `.`), e.g. `.git`, `.hidden`, `.obsidian`.
+- Two independent opt-out toggles in settings: **Exclude hidden files** and **Exclude dotfolders**.
+
 ## [0.7.43] - 2026-08-27
 
 ### Changed
@@ -392,6 +401,7 @@ Initial public releases (0.2.0 – 0.2.1) of the Nextcloud-specific sync engine:
 - **Clearer conflict outcomes in the dry-run** — the first-sync preview now explains what conflict resolution will produce, and each conflicted file is clickable to preview the exact merged before/after result.
 - **Faster than generic WebDAV** — by diffing content hashes against Nextcloud's `sync-token`, each sync transfers only what actually changed instead of recursively walking the entire remote tree on every run, so syncs complete noticeably faster than modification-time-based WebDAV plugins.
 
+[1.0.0]: https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/releases/tag/1.0.0
 [0.7.43]: https://github.com/siosig/obsidian-nextcloudsync/releases/tag/0.7.43
 [0.7.42]: https://github.com/siosig/obsidian-nextcloudsync/releases/tag/0.7.42
 [0.7.41]: https://github.com/siosig/obsidian-nextcloudsync/releases/tag/0.7.41

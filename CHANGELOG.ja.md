@@ -11,6 +11,15 @@
 
 > 英語版（原文）は [`CHANGELOG.md`](CHANGELOG.md) を参照してください。
 
+## [1.0.0] - 2026-08-29
+
+[obsidian-nextcloudsync](https://github.com/siosig/obsidian-nextcloudsync) v0.7.43 からのフォーク（「YANC」フォーク）です。
+
+### 追加
+- 隠しファイル（名前が `.` で始まる）の既定での除外（`.env`、`.gitignore`、`.DS_Store` など）。
+- すべてのドットフォルダ（いずれかのパス要素が `.` で始まる）の既定での除外（`.git`、`.hidden`、`.obsidian` など）。
+- 設定内の独立した無効化トグル 2 つ：**Exclude hidden files** と **Exclude dotfolders**。
+
 ## [0.7.43] - 2026-08-27
 
 ### 変更
@@ -392,6 +401,7 @@ Nextcloud 特化同期エンジンの初回公開リリース（0.2.0 〜 0.2.1�
 - **Dry-run でのコンフリクト結果の明確化** — 初回同期プレビューがコンフリクト解決の結果を説明し、各コンフリクトファイルをクリックするとマージ後の内容（変更前後）をプレビューできます。
 - **汎用 WebDAV より高速な同期** — 内容ハッシュと Nextcloud の `sync-token` を突き合わせ、毎回リモートツリー全体を再帰的に走査するのではなく、実際に変更された分だけを転送します。更新日時ベースの WebDAV プラグインより同期が明確に速くなります。
 
+[1.0.0]: https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/releases/tag/1.0.0
 [0.7.43]: https://github.com/siosig/obsidian-nextcloudsync/releases/tag/0.7.43
 [0.7.42]: https://github.com/siosig/obsidian-nextcloudsync/releases/tag/0.7.42
 [0.7.41]: https://github.com/siosig/obsidian-nextcloudsync/releases/tag/0.7.41

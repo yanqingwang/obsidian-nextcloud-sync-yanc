@@ -60,3 +60,6 @@ CLAUDE.md
 
 # b-3 (Android) diagnostic bundles pulled from the emulator on failure
 .b3-diagnostics/
+
+# Sandbox/tooling temp files (zero-byte, recreated per command; never tracked)
+_tmp_*
