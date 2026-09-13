@@ -28,6 +28,9 @@ import { makeSetting } from './settingFactory';
 import { normalizeExcludedFolder } from '../util/excludedFolders';
 import { SLIDER_LIMITS } from './sliderLimits';
 import { normalizeNumericInput } from '../util/numericInput';
+import { credentialSignature } from './credentialSignature';
+// Re-exported so callers that already reach into SettingTab for the password helpers keep working.
+export { credentialSignature };
 
 /** Default secret ID in SecretStorage (users can pick a different ID via "Link…"). */
 const DEFAULT_PASSWORD_SECRET_ID = 'obsidian-nextcloudsync-password';
@@ -1093,15 +1096,4 @@ export function loadAppPassword(app: App, secretId: string): string | null {
 function saveAppPassword(app: App, secretId: string, value: string): void {
   const id = secretId || DEFAULT_PASSWORD_SECRET_ID;
   app.secretStorage.setSecret(id, value);
-}
-
-/**
- * Fingerprint of everything that determines the credentials a sync engine is built with. Stored by
- * {@link ObsidianNextcloudsync.initSyncEngine} when the engine is created and compared by
- * `runSyncNow` — a mismatch (e.g. the user pasted an app password AFTER startup, so the engine is
- * still holding a null-password client factory) forces a rebuild instead of syncing with stale
- * credentials that can only fail with CredentialsNotFoundError.
- */
-export function credentialSignature(serverUrl: string, username: string, secretId: string, password: string | null): string {
-  return `${serverUrl.trim()}|${username.trim()}|${secretId || DEFAULT_PASSWORD_SECRET_ID}|${password ?? ''}`;
 }

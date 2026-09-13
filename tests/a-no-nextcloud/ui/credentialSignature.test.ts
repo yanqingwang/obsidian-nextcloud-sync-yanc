@@ -1,4 +1,4 @@
-import { credentialSignature } from '../../../src/settings/SettingTab';
+import { credentialSignature } from '../../../src/settings/credentialSignature';
 
 // The credential fingerprint lets runSyncNow detect "credentials changed since the engine was
 // built" — the manual-sign-in-after-startup case (HarmonyOS 出境易: paste app password, sync).
@@ -9,11 +9,11 @@ describe('credentialSignature', () => {
     expect(a).not.toEqual(b);
   });
 
-  it('changes when the server URL or username changes (trimmed)', () => {
+  it('changes when the server URL or username changes (whitespace-trimmed)', () => {
     const base = credentialSignature('https://nc', 'alice', 's1', 'pw');
-    expect(credentialSignature('https://nc/', 'alice', 's1', 'pw')).toEqual(base);
     expect(credentialSignature(' https://nc ', ' alice ', 's1', 'pw')).toEqual(base);
     expect(credentialSignature('https://other', 'alice', 's1', 'pw')).not.toEqual(base);
+    expect(credentialSignature('https://nc/', 'alice', 's1', 'pw')).not.toEqual(base);
     expect(credentialSignature('https://nc', 'bob', 's1', 'pw')).not.toEqual(base);
   });
 
@@ -23,8 +23,8 @@ describe('credentialSignature', () => {
     expect(credentialSignature('https://nc', 'alice', 'other-id', 'pw')).not.toEqual(def);
   });
 
-  it('distinguishes a null password from an empty one', () => {
+  it('treats a null password like an empty one (both are "no password" to the factory)', () => {
     expect(credentialSignature('https://nc', 'alice', 's1', null))
-      .not.toEqual(credentialSignature('https://nc', 'alice', 's1', ''));
+      .toEqual(credentialSignature('https://nc', 'alice', 's1', ''));
   });
 });
