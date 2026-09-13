@@ -60,13 +60,14 @@ describe('[SPEC:FR-007] Server URL description prevents HTTP 405', () => {
 });
 
 describe('[SPEC:FR-010] sign-in help explains the model', () => {
-  it('covers browser-or-manual alternatives, recommended browser, no separate login, verified next sync', () => {
+  it('covers browser-or-manual alternatives, recommended browser, paste field, and the verify-and-connect step', () => {
     const h = SIGN_IN_HELP.toLowerCase();
     expect(h).toContain('recommended');           // browser path is recommended
     expect(h).toContain('manually');               // manual alternative
     expect(h).toContain('alternatives');           // they are alternatives, not both
-    expect(h).toContain('no separate');            // no separate login action
-    expect(h).toContain('next sync');              // verified on next sync
+    expect(h).toContain('paste');                  // manual path pastes an app password
+    expect(h).toContain('verify & connect');       // explicit post-sign-in verification step
+    expect(h).toContain('activates syncing');      // verification is what activates syncing
   });
 });
 

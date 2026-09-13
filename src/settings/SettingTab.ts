@@ -17,7 +17,7 @@ import {
   SettingGroup,
 } from 'obsidian';
 import type ObsidianNextcloudsync from '../main';
-import { LoginFlowError, DavSyncSettings } from '../types';
+import { LoginFlowError, DavSyncSettings, NetworkError, CredentialsNotFoundError, MaintenanceModeError } from '../types';
 import { parseMergeableExtensions, formatMergeableExtensions } from '../util/mergeableExtensions';
 import { FolderInputSuggest } from '../ui/FolderInputSuggest';
 import { LoginFlowV2, friendlyLoginError } from '../auth/LoginFlowV2';
@@ -154,11 +154,16 @@ export class NextcloudSyncSettingTab extends PluginSettingTab {
         st.setName('Username').setDesc('Nextcloud username (vault-specific). Only needed for manual sign-in.').setTooltip(TOOLTIPS.username)
           .addText(text => text.setValue(s.username).onChange(async (value) => { s.username = value.trim(); await this.plugin.saveSettings(); if (requireApiVersion('1.13.0')) this.refreshDomState(); }));
       }),
-      def('App password', "Nextcloud app password (only for manual sign-in). Click \"Link…\" to store it in Obsidian's encrypted Secret Storage (never saved in data.json). Generate at Settings → Security → Devices & Sessions.", (st) => {
+      def('App password', "Nextcloud app password (only for manual sign-in). Paste it into the password field — it is stored in Obsidian's encrypted Secret Storage (never saved in data.json). Generate at Settings → Security → Devices & Sessions.", (st) => {
         patch(st);
-        st.setName('App password').setDesc("Nextcloud app password (only for manual sign-in). Click \"Link…\" to store it in Obsidian's encrypted Secret Storage (never saved in data.json). Generate at Settings → Security → Devices & Sessions.").setTooltip(TOOLTIPS.appPassword)
-          .addComponent((el) => new SecretComponent(this.app, el).setValue(s.passwordSecretId || DEFAULT_PASSWORD_SECRET_ID).onChange(async (secretId) => { s.passwordSecretId = secretId; await this.plugin.saveSettings(); if (requireApiVersion('1.13.0')) this.refreshDomState(); }));
+        st.setName('App password').setDesc("Nextcloud app password (only for manual sign-in). Paste it into the password field — it is stored in Obsidian's encrypted Secret Storage (never saved in data.json). Generate at Settings → Security → Devices & Sessions.").setTooltip(TOOLTIPS.appPassword);
+        this.addAppPasswordControls(st, () => { if (requireApiVersion('1.13.0')) this.refreshDomState(); });
       }),
+      {
+        name: 'Verify & connect',
+        desc: 'Probe the server with the credentials above and report the result. Required once after manual sign-in so the sync engine picks up the new credentials.',
+        action: () => { void this.verifySignIn(); },
+      },
       def('Sync folder', "Fixed to this vault's name. The entire vault is synced under a remote folder named after the vault.", (st) => {
         patch(st);
         st.setName('Sync folder').setDesc("Fixed to this vault's name. The entire vault is synced under a remote folder named after the vault.").setTooltip(TOOLTIPS.syncFolder)
@@ -448,19 +453,21 @@ export class NextcloudSyncSettingTab extends PluginSettingTab {
           await this.plugin.saveSettings();
         }));
 
+    this.addAppPasswordControls(
+      makeSetting(containerEl)
+        .setName('App password')
+        .setDesc('Nextcloud app password (only for manual sign-in). Paste it into the password field — it is stored in Obsidian\'s encrypted Secret Storage (never saved in data.json). Generate at Settings → Security → Devices & Sessions.')
+        .setTooltip(TOOLTIPS.appPassword),
+      () => { refreshSyncNow(); refreshAuthWarning(); },
+    );
+
     makeSetting(containerEl)
-      .setName('App password')
-      .setDesc('Nextcloud app password (only for manual sign-in). Click "Link…" to store it in Obsidian\'s encrypted Secret Storage (never saved in data.json). Generate at Settings → Security → Devices & Sessions.')
-      .setTooltip(TOOLTIPS.appPassword)
-      .addComponent((el) => new SecretComponent(this.app, el)
-        .setValue(this.plugin.settings.passwordSecretId || DEFAULT_PASSWORD_SECRET_ID)
-        .onChange(async (secretId) => {
-          // SecretComponent returns the secret's reference ID (the actual value stays in secretStorage).
-          this.plugin.settings.passwordSecretId = secretId;
-          refreshSyncNow();
-          refreshAuthWarning();
-          await this.plugin.saveSettings();
-        }));
+      .setName('Verify & connect')
+      .setDesc('Probe the server with the credentials above and report the result. Required once after manual sign-in so the sync engine picks up the new credentials (on hostile mobile networks this is also the moment a real connection is proven).')
+      .addButton(btn => btn
+        .setButtonText('Verify & connect')
+        .setCta()
+        .onClick(async () => { await this.verifySignIn(); }));
 
     makeSetting(containerEl)
       .setName('Sync folder')
@@ -943,6 +950,78 @@ export class NextcloudSyncSettingTab extends PluginSettingTab {
    * Run Login Flow v2 and, on success, set the username and app password.
    * The password is stored in SecretStorage and never saved in plaintext in data.json (FR-002).
    */
+  /**
+   * Verify the manual sign-in (server URL + username + app password) by probing the server, and on
+   * success rebuild the sync engine with the fresh credentials. This is the reliable sign-in path on
+   * hostile mobile environments (e.g. HarmonyOS 出境易/卓易通) where the browser login flow v2 keeps
+   * failing at the transport level: it uses the same WebDAV machinery as actual syncing, so "verified"
+   * means the engine will really be able to talk to the server.
+   */
+  private async verifySignIn(): Promise<void> {
+    const s = this.plugin.settings;
+    const serverUrl = s.serverUrl.trim();
+    const username = s.username.trim();
+    const password = loadAppPassword(this.app, s.passwordSecretId);
+    if (!serverUrl || !username || !password) {
+      new Notice('Fill in the server URL, username and app password first.', 6000);
+      return;
+    }
+    void this.plugin.logger.log('verify: probing server');
+    new Notice('Verifying connection…', 4000);
+    try {
+      const { WebDAVFactory } = await import('../network/WebDAVFactory');
+      const factory = new WebDAVFactory(this.app, s, password, (m) => void this.plugin.logger.log(`verify: ${m}`));
+      const { features } = await factory.createClient();
+      const where = features.isNextcloud && features.version ? ` (Nextcloud ${features.version})` : '';
+      void this.plugin.logger.log(`verify: ok${where}`);
+      new Notice(`✅ Connected${where}. Sign-in works — syncing is ready.`, 6000);
+      await this.plugin.initSyncEngine(); // rebuild with the fresh credentials
+      this.render();
+    } catch (err) {
+      void this.plugin.logger.log(`verify: ERROR — ${(err as Error).message}`, 'error');
+      let text: string;
+      if (err instanceof CredentialsNotFoundError) {
+        text = 'no app password is stored — paste it above.';
+      } else if (err instanceof MaintenanceModeError) {
+        text = 'the server is in maintenance mode. Try again later.';
+      } else if (err instanceof NetworkError && (err.status === 401 || err.status === 403)) {
+        text = `the server rejected the credentials (HTTP ${err.status}). Check the username and app password.`;
+      } else {
+        text = friendlyLoginError(err);
+      }
+      new Notice(`❌ Sign-in failed: ${text}`, 9000);
+    }
+  }
+
+  /**
+   * The manual app-password control: a paste field (mobile-friendly, no modal round-trip) plus the
+   * SecretComponent "Link…" button for users who manage named secrets. The paste field commits on
+   * blur/Enter (the input's change event) — not per keystroke — so a half-pasted password is never
+   * stored. Always stores under the default secret ID, overwriting any previous value.
+   */
+  private addAppPasswordControls(st: Setting, refresh: () => void): void {
+    st.addText(text => {
+      text.inputEl.type = 'password';
+      text.inputEl.setAttr('aria-label', 'Paste app password');
+      text.setPlaceholder('Paste app password here');
+      text.inputEl.addEventListener('change', () => {
+        const value = text.inputEl.value.trim();
+        if (!value) return;
+        saveAppPassword(this.app, DEFAULT_PASSWORD_SECRET_ID, value);
+        this.plugin.settings.passwordSecretId = DEFAULT_PASSWORD_SECRET_ID;
+        text.inputEl.value = ''; // never keep the secret in the DOM; SecretStorage holds it
+        void (async () => { await this.plugin.saveSettings(); refresh(); })();
+      });
+    }).addComponent((el) => new SecretComponent(this.app, el)
+      .setValue(this.plugin.settings.passwordSecretId || DEFAULT_PASSWORD_SECRET_ID)
+      .onChange(async (secretId) => {
+        // SecretComponent returns the secret's reference ID (the actual value stays in secretStorage).
+        this.plugin.settings.passwordSecretId = secretId;
+        refresh();
+        await this.plugin.saveSettings();
+      }));
+  }
+
   private async runLoginFlow(): Promise<void> {
     void this.plugin.logger.log('login: "Log in via browser" clicked');
     const serverUrl = this.plugin.settings.serverUrl.trim();
@@ -986,9 +1065,9 @@ export class NextcloudSyncSettingTab extends PluginSettingTab {
     } catch (err) {
       void this.plugin.logger.log(`login: ERROR — ${(err as Error).message}`, 'error');
       if (err instanceof LoginFlowError && err.reason === 'unsupported') {
-        new Notice('This server does not support login flow. Please enter an app password manually.', 8000);
+        new Notice('This server does not support login flow. Please enter an app password manually, then use the verify-and-connect button.', 8000);
       } else {
-        new Notice(`❌ Login failed: ${friendlyLoginError(err)}`, 8000);
+        new Notice(`❌ Login failed: ${friendlyLoginError(err)} You can sign in with an app password instead: enter your username, paste the password (Settings → Security → Devices & Sessions on the server), then press "Verify & connect".`, 12000);
       }
     }
   }
@@ -1009,9 +1088,20 @@ export function loadAppPassword(app: App, secretId: string): string | null {
 
 /**
  * Save the app password to SecretStorage (encrypted; never stored in data.json).
- * Used to store the password obtained via Login Flow v2.
+ * Used to store the password obtained via Login Flow v2, and by the manual paste field.
  */
 function saveAppPassword(app: App, secretId: string, value: string): void {
   const id = secretId || DEFAULT_PASSWORD_SECRET_ID;
   app.secretStorage.setSecret(id, value);
+}
+
+/**
+ * Fingerprint of everything that determines the credentials a sync engine is built with. Stored by
+ * {@link ObsidianNextcloudsync.initSyncEngine} when the engine is created and compared by
+ * `runSyncNow` — a mismatch (e.g. the user pasted an app password AFTER startup, so the engine is
+ * still holding a null-password client factory) forces a rebuild instead of syncing with stale
+ * credentials that can only fail with CredentialsNotFoundError.
+ */
+export function credentialSignature(serverUrl: string, username: string, secretId: string, password: string | null): string {
+  return `${serverUrl.trim()}|${username.trim()}|${secretId || DEFAULT_PASSWORD_SECRET_ID}|${password ?? ''}`;
 }

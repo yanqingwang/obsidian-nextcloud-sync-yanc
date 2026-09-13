@@ -1,6 +1,6 @@
 import { App, Plugin, Notice, Platform, TFile, TFolder, TAbstractFile, debounce } from 'obsidian';
 import { DavSyncSettings, DEFAULT_SETTINGS, FeatureUnsupportedError } from './types';
-import { NextcloudSyncSettingTab } from './settings/SettingTab';
+import { NextcloudSyncSettingTab, loadAppPassword, credentialSignature } from './settings/SettingTab';
 import { SyncEngine } from './sync/SyncEngine';
 import { VersionHistoryModal } from './ui/VersionHistoryModal';
 import { SyncStatusModal } from './ui/SyncStatusModal';
@@ -38,6 +38,10 @@ export default class ObsidianNextcloudsync extends Plugin {
    *  while `this.syncEngine` is still unset. Cleared once initialization settles, so a later explicit
    *  call (e.g. re-login) still starts a fresh init. */
   private initializingEngine?: Promise<void>;
+  /** Credential fingerprint the current engine was built with (see {@link credentialSignature}).
+   *  `runSyncNow` compares it against the live credentials — a mismatch (user pasted an app password
+   *  AFTER the startup auto-init) forces a rebuild instead of syncing with a null-password client. */
+  engineCredSig?: string;
   /** Merge base store (feature 038); flushed on unload so a debounced base write is not lost. */
   baseStore?: MergeBaseStore;
   /** Clean-side snapshot store (feature 044); flushed on unload so a debounced write is not lost. */
@@ -220,8 +224,12 @@ export default class ObsidianNextcloudsync extends Plugin {
    */
   async runSyncNow(): Promise<void> {
     void this.logger.log('sync: "Sync now" clicked');
-    // Initialize lazily if credentials were entered after startup (e.g. first-time setup).
-    if (!this.syncEngine && this.settings.serverUrl && this.settings.username) {
+    // Initialize lazily if credentials were entered after startup (e.g. first-time setup), and REBUILD
+    // when the credentials changed since the engine was built: without this, an engine auto-inited at
+    // startup holds a client factory captured with password=null, and manually pasting an app password
+    // afterwards would only ever yield CredentialsNotFoundError until the app was restarted.
+    const sig = credentialSignature(this.settings.serverUrl, this.settings.username, this.settings.passwordSecretId, loadAppPassword(this.app, this.settings.passwordSecretId));
+    if ((!this.syncEngine || this.engineCredSig !== sig) && this.settings.serverUrl && this.settings.username) {
       await this.initSyncEngine();
     }
     if (!this.syncEngine) {
@@ -577,6 +585,7 @@ export default class ObsidianNextcloudsync extends Plugin {
     this.statusBarEl = statusBarEl;
     const password = loadAppPassword(this.app, this.settings.passwordSecretId);
     const webdavFactory = new WebDAVFactory(this.app, this.settings, password, (m) => void this.logger.log(`net: ${m}`));
+    this.engineCredSig = credentialSignature(this.settings.serverUrl, this.settings.username, this.settings.passwordSecretId, password);
 
     this.syncEngine = new SyncEngine({
       app: this.app,

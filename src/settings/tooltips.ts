@@ -95,7 +95,7 @@ export const SERVER_URL_DESC =
 
 /** Supplemental sign-in guidance shown at the top of the credentials area. */
 export const SIGN_IN_HELP =
-  'Two ways to sign in: (A) Log in via browser (recommended) fills Username and App password for you; or (B) enter Username + App password manually — they are alternatives, not both. There is no separate "login" button: once Server URL + Username + App password are set you are signed in and Sync now is enabled; credentials are verified on the next sync.';
+  'Two ways to sign in: (A) Log in via browser (recommended) fills Username and App password for you; or (B) enter Username + paste an App password manually — they are alternatives, not both. After manual sign-in, press "Verify & connect" once: it proves the connection works and activates syncing (on hostile mobile networks, e.g. HarmonyOS 出境易, it is also the moment a real connection is tested).';
 
 /** Divider label between the recommended path and the manual fields. */
 export const SIGN_IN_MANUAL_DIVIDER = '— or sign in manually —';

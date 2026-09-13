@@ -35,6 +35,14 @@ This plugin is still young and some behaviour can be rough around the edges. **P
 
 ---
 
+## What's new in Nextcloud sync YANC (1.0.3)
+
+> **1.0.3** makes manual password sign-in work reliably — the path to use when the browser login flow fails on hostile mobile networks (HarmonyOS 出境易/卓易通).
+
+- **Manual sign-in takes effect immediately** — fixed: an engine initialized at startup kept a null-password client, so an app password entered afterwards was never used until the app was restarted. "Sync now" now detects changed credentials and rebuilds the engine.
+- **Paste field for the app password** — stored encrypted in Obsidian's Secret Storage on commit; the secret never lives in the DOM or `data.json`.
+- **"Verify & connect" button** — probes the server with your credentials, reports actionable errors (wrong password → HTTP 401, maintenance mode, translated network failures), and activates syncing on success.
+
 ## What's new in Nextcloud sync YANC (1.0.2)
 
 > **1.0.2** makes browser sign-in resilient on hostile mobile networks — the reported cause of "Login failed: SocketException" when running Obsidian inside the HarmonyOS 出境易/卓易通 Android container.

@@ -11,6 +11,23 @@ and folded into the next stable entry.
 
 > A Japanese translation is available at [`CHANGELOG.ja.md`](CHANGELOG.ja.md).
 
+## [1.0.3] - 2026-09-13
+
+### Fixed
+- Manual app-password sign-in now actually takes effect without an app restart. An engine
+  auto-initialized at startup captured a client factory with a null password, and credentials entered
+  afterwards were never picked up ("Sync now" kept failing with `CredentialsNotFoundError` until
+  Obsidian was restarted). `runSyncNow` now compares a credential fingerprint (server URL, username,
+  secret ID, password value) and rebuilds the engine when it changed.
+- Added a **paste field** for the app password (stored in Obsidian's encrypted Secret Storage on
+  commit — the secret never lives in the DOM or `data.json`), alongside the existing "Link…" control.
+- Added a **"Verify & connect"** button (both the legacy and the 1.13.0+ declarative settings paths):
+  it probes the server with the entered credentials, reports the result with actionable errors
+  (401/403 → check username/password, maintenance mode, transport failures translated), and on
+  success rebuilds the sync engine. This is the reliable sign-in path on hostile mobile networks
+  (e.g. HarmonyOS 出境易/卓易通) where the browser login flow v2 fails at the transport level.
+- Browser-login failure notices now explicitly point at the manual app-password + verify path.
+
 ## [1.0.2] - 2026-09-13
 
 ### Fixed
