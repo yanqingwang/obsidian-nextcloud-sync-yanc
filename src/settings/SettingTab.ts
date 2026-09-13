@@ -21,6 +21,8 @@ import { LoginFlowError, DavSyncSettings, NetworkError, CredentialsNotFoundError
 import { parseMergeableExtensions, formatMergeableExtensions } from '../util/mergeableExtensions';
 import { FolderInputSuggest } from '../ui/FolderInputSuggest';
 import { LoginFlowV2, friendlyLoginError } from '../auth/LoginFlowV2';
+import { friendlyNetworkError } from '../network/errorMessages';
+import { checkReachability } from '../network/ConnectionTester';
 import { MIN_NEXTCLOUD_VERSION, isSupportedNextcloudVersion } from '../util/version';
 import { CONFIG_SYNC_CATEGORIES } from '../sync/ConfigSyncResolver';
 import { TOOLTIPS, SERVER_URL_DESC, SIGN_IN_HELP, SIGN_IN_MANUAL_DIVIDER, CONFIG_CATEGORY_TOOLTIP } from './tooltips';
@@ -163,8 +165,8 @@ export class NextcloudSyncSettingTab extends PluginSettingTab {
         this.addAppPasswordControls(st, () => { if (requireApiVersion('1.13.0')) this.refreshDomState(); });
       }),
       {
-        name: 'Verify & connect',
-        desc: 'Probe the server with the credentials above and report the result. Required once after manual sign-in so the sync engine picks up the new credentials.',
+        name: 'Test connection',
+        desc: 'Two-stage connectivity check: (1) can this device reach the server at all (DNS/TCP/TLS), (2) are the credentials accepted. Activates syncing when both pass. Use this after manual sign-in, or any time sync fails and you need to know why.',
         action: () => { void this.verifySignIn(); },
       },
       def('Sync folder', "Fixed to this vault's name. The entire vault is synced under a remote folder named after the vault.", (st) => {
@@ -465,10 +467,10 @@ export class NextcloudSyncSettingTab extends PluginSettingTab {
     );
 
     makeSetting(containerEl)
-      .setName('Verify & connect')
-      .setDesc('Probe the server with the credentials above and report the result. Required once after manual sign-in so the sync engine picks up the new credentials (on hostile mobile networks this is also the moment a real connection is proven).')
+      .setName('Test connection')
+      .setDesc('Two-stage connectivity check: (1) can this device reach the server at all (DNS/TCP/TLS), (2) are the credentials accepted. Activates syncing when both pass. Use this after manual sign-in, or any time sync fails and you need to know why.')
       .addButton(btn => btn
-        .setButtonText('Verify & connect')
+        .setButtonText('Test connection')
         .setCta()
         .onClick(async () => { await this.verifySignIn(); }));
 
@@ -950,15 +952,16 @@ export class NextcloudSyncSettingTab extends PluginSettingTab {
   }
 
   /**
-   * Run Login Flow v2 and, on success, set the username and app password.
-   * The password is stored in SecretStorage and never saved in plaintext in data.json (FR-002).
-   */
-  /**
-   * Verify the manual sign-in (server URL + username + app password) by probing the server, and on
-   * success rebuild the sync engine with the fresh credentials. This is the reliable sign-in path on
-   * hostile mobile environments (e.g. HarmonyOS 出境易/卓易通) where the browser login flow v2 keeps
-   * failing at the transport level: it uses the same WebDAV machinery as actual syncing, so "verified"
-   * means the engine will really be able to talk to the server.
+   * Connection check (校验连接性): a two-stage diagnostic that pinpoints WHERE the chain breaks,
+   * then activates syncing if everything passed.
+   *
+   * Stage 1 — reachability: GET /status.php without credentials. Any HTTP response proves DNS +
+   * TCP + TLS + HTTP all work; a transport exception (SSLHandshakeException, SocketException — the
+   * HarmonyOS 出境易 container's signature failures) means the network path itself is the problem
+   * and there is no point blaming credentials.
+   * Stage 2 — authentication: the real WebDAV client connect (same machinery as syncing), so
+   * "verified" means the engine will really be able to talk to the server. On success the sync
+   * engine is rebuilt with the fresh credentials.
    */
   private async verifySignIn(): Promise<void> {
     const s = this.plugin.settings;
@@ -969,15 +972,20 @@ export class NextcloudSyncSettingTab extends PluginSettingTab {
       new Notice('Fill in the server URL, username and app password first.', 6000);
       return;
     }
-    void this.plugin.logger.log('verify: probing server');
-    new Notice('Verifying connection…', 4000);
+    new Notice('Testing connection…', 4000);
+    const reach = await checkReachability(serverUrl);
+    void this.plugin.logger.log(`verify: reachability — ${reach.ok ? 'ok' : 'failed'} (${reach.detail})`);
+    if (!reach.ok) {
+      new Notice(`❌ Connectivity check failed: ${reach.detail}`, 12000);
+      return;
+    }
     try {
       const { WebDAVFactory } = await import('../network/WebDAVFactory');
       const factory = new WebDAVFactory(this.app, s, password, (m) => void this.plugin.logger.log(`verify: ${m}`));
       const { features } = await factory.createClient();
       const where = features.isNextcloud && features.version ? ` (Nextcloud ${features.version})` : '';
-      void this.plugin.logger.log(`verify: ok${where}`);
-      new Notice(`✅ Connected${where}. Sign-in works — syncing is ready.`, 6000);
+      void this.plugin.logger.log(`verify: auth ok${where}`);
+      new Notice(`✅ Connection OK — ${reach.detail}; credentials accepted${where}. Syncing is ready.`, 8000);
       await this.plugin.initSyncEngine(); // rebuild with the fresh credentials
       this.render();
     } catch (err) {
@@ -988,11 +996,11 @@ export class NextcloudSyncSettingTab extends PluginSettingTab {
       } else if (err instanceof MaintenanceModeError) {
         text = 'the server is in maintenance mode. Try again later.';
       } else if (err instanceof NetworkError && (err.status === 401 || err.status === 403)) {
-        text = `the server rejected the credentials (HTTP ${err.status}). Check the username and app password.`;
+        text = `the server is reachable, but rejected the credentials (HTTP ${err.status}). Check the username and app password.`;
       } else {
-        text = friendlyLoginError(err);
+        text = friendlyNetworkError(err);
       }
-      new Notice(`❌ Sign-in failed: ${text}`, 9000);
+      new Notice(`✅ Server is reachable (${reach.detail}), but sign-in failed: ${text}`, 12000);
     }
   }
 
@@ -1070,7 +1078,7 @@ export class NextcloudSyncSettingTab extends PluginSettingTab {
       if (err instanceof LoginFlowError && err.reason === 'unsupported') {
         new Notice('This server does not support login flow. Please enter an app password manually, then use the verify-and-connect button.', 8000);
       } else {
-        new Notice(`❌ Login failed: ${friendlyLoginError(err)} You can sign in with an app password instead: enter your username, paste the password (Settings → Security → Devices & Sessions on the server), then press "Verify & connect".`, 12000);
+        new Notice(`❌ Login failed: ${friendlyNetworkError(err)} You can sign in with an app password instead: enter your username, paste the password (Settings → Security → Devices & Sessions on the server), then press "Test connection".`, 12000);
       }
     }
   }

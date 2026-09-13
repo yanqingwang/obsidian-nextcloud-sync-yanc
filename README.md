@@ -35,6 +35,14 @@ This plugin is still young and some behaviour can be rough around the edges. **P
 
 ---
 
+## What's new in Nextcloud sync YANC (1.0.4)
+
+> **1.0.4** turns the connection check into a two-stage diagnostic that pinpoints exactly where the chain breaks, and translates raw TLS/socket failures into actionable guidance.
+
+- **"Test connection" button** — stage 1 proves the device can reach the server at all (DNS / TCP / TLS / HTTP, no credentials); stage 2 verifies the credentials with the same WebDAV machinery syncing uses. The failure notice names the broken stage: TLS or socket transport failure vs HTTP 401/403 credential rejection vs an unhealthy server.
+- **Readable sync failures** — raw native exception strings ("SSLHandshakeException: Connection closed by peer", "SocketException", …) shown by "Sync failed" are translated into guidance (a cut TLS handshake is a network-path problem, not a credentials problem).
+- **New README section**: [Troubleshooting on restricted networks (HarmonyOS 出境易/卓易通)](#troubleshooting-on-restricted-networks-harmonyos-出境易卓易通).
+
 ## What's new in Nextcloud sync YANC (1.0.3)
 
 > **1.0.3** makes manual password sign-in work reliably — the path to use when the browser login flow fails on hostile mobile networks (HarmonyOS 出境易/卓易通).
@@ -159,6 +167,31 @@ Mobile is supported, with a few platform-aware differences (desktop behaviour is
 5. Run the **Sync now** command (or wait for the periodic sync). The first run performs a full scan of your Vault and the remote, then transfers what's needed; subsequent syncs are incremental.
 
 Your Vault is synced into a folder named after the Vault on the Nextcloud side, keeping multiple Vaults cleanly separated.
+
+---
+
+## Troubleshooting on restricted networks (HarmonyOS 出境易/卓易通)
+
+Obsidian running inside the HarmonyOS 出境易/卓易通 Android container shares its network stack, which
+is far more aggressive about reaping sockets and cutting TLS handshakes than ordinary Android. The
+plugin's network layer is built for this (retries, hard timeouts, tolerant login polling), but when
+a failure does get through, these are the steps that resolve it:
+
+1. **Press "Test connection"** in the plugin settings. It reports which stage failed:
+   - *"TLS handshake was cut off"* or *"socket error"* → the network path is the problem (see step 2–4).
+   - *"rejected the credentials (HTTP 401)"* → the server answered; fix the username / app password.
+   - *"server reachable but reported HTTP 5xx"* → the server is unhealthy or in maintenance.
+2. **Sign in with an app password instead of the browser flow.** Generate one at Nextcloud web →
+   Settings → Security → Devices & Sessions, paste it into the plugin's **App password** field, then
+   press **Test connection**. The browser login flow (Login Flow v2) is much more sensitive to
+   socket churn than plain WebDAV.
+3. **Switch networks.** If "Test connection" passes on a phone hotspot but not on Wi-Fi (or vice
+   versa), the failing network is interfering with TLS — a common pattern in containers and
+   firewalled networks. `SSLHandshakeException: Connection closed by peer` almost always means this.
+4. **Keep Obsidian in the foreground** while connecting. Backgrounded apps have their sockets reaped;
+   the first request after returning from another app may need one retry.
+5. **Still failing?** Enable logging (Settings → enable logging) and check the log file — every
+   connection attempt is recorded with the failing stage.
 
 ---
 

@@ -1,7 +1,7 @@
 {
   "id": "nextcloud-sync-yanc",
   "name": "Nextcloud sync YANC",
-  "version": "1.0.3",
+  "version": "1.0.4",
   "minAppVersion": "1.11.4",
   "description": "Bidirectional Vault ↔ Nextcloud sync with smart/force modes, chunked uploads, and built-in exclusion of hidden files and dotfolders (the YANC fork).",
   "author": "yanqingwang",

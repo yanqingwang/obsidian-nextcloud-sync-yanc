@@ -1,4 +1,5 @@
 import { requestUrl } from 'obsidian';
+import { friendlyNetworkError } from '../network/errorMessages';
 import { LoginFlowInit, LoginFlowResult, LoginFlowError } from '../types';
 
 /**
@@ -259,26 +260,10 @@ function withTimeout<T>(p: Promise<T>, timeoutMs: number): Promise<T> {
 }
 
 /**
- * Converts a login-flow failure into a short, actionable message. Mobile `requestUrl` errors arrive
- * as raw native exception strings ("SocketException: Connection reset", "SSLException", …) that are
- * meaningless to users — and in the HarmonyOS 出境易/卓易通 Android container they are the *normal*
- * symptom of the container reaping sockets, not a misconfiguration. Returns the raw message when
- * nothing matches.
+ * Converts a login-flow failure into a short, actionable message. Delegates to the shared network
+ * translator (src/network/errorMessages.ts) so sync failures and login failures speak the same
+ * language about the same native exception strings.
  */
 export function friendlyLoginError(err: unknown): string {
-  const msg = err instanceof Error ? err.message : String(err);
-  if (/socket|ECONNRESET|ECONNABORTED|EPIPE|connection reset|broken pipe|网络/i.test(msg)) {
-    return 'connection to the server was dropped (socket error). Check the network, then retry — ' +
-      'on HarmonyOS devices (出境易/卓易通) this is often transient; if it persists, sign in with a manual app password.';
-  }
-  if (/SSL|TLS|handshake|certificate/i.test(msg)) {
-    return 'secure connection failed (SSL/TLS). Check that the server URL uses the correct https address and a valid certificate.';
-  }
-  if (/UnknownHost|ENOTFOUND|resolve|EAI_AGAIN/i.test(msg)) {
-    return 'server address could not be resolved. Check the server URL and DNS/network access.';
-  }
-  if (/timed out/i.test(msg)) {
-    return 'the server did not respond in time. Check the network or server status, then retry.';
-  }
-  return msg;
+  return friendlyNetworkError(err);
 }

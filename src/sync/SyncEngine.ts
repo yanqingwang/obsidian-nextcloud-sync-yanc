@@ -16,6 +16,7 @@ import {
   RemoteCompareResult,
 } from '../types';
 import { LocalAdapter } from '../data/LocalAdapter';
+import { friendlyNetworkError } from '../network/errorMessages';
 import { StateDB } from '../data/StateDB';
 import type { MergeBaseStore } from '../data/MergeBaseStore';
 import type { CleanSideStore } from '../data/CleanSideStore';
@@ -417,7 +418,9 @@ export class SyncEngine {
     } catch (err) {
       console.error('[SyncEngine] Sync failed:', err);
       void this.opts.logger?.log(`sync: FAILED — ${(err as Error).message}`, 'error');
-      new Notice(`❌ Sync failed: ${(err as Error).message}`, 6000);
+      // Native transport failures arrive as opaque Java exception strings (SSLHandshakeException,
+      // SocketException, …); translate them into actionable guidance instead of showing them raw.
+      new Notice(`❌ Sync failed: ${friendlyNetworkError(err)}`, 9000);
       this.recordError(summary, '', err);
     } finally {
       // Clear the running flags FIRST. Everything below is best-effort teardown that can throw (a

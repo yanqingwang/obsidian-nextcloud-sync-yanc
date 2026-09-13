@@ -11,6 +11,25 @@ and folded into the next stable entry.
 
 > A Japanese translation is available at [`CHANGELOG.ja.md`](CHANGELOG.ja.md).
 
+## [1.0.4] - 2026-09-13
+
+### Added
+- **"Test connection" button** (replaces "Verify & connect") now runs a two-stage connectivity
+  diagnostic and pinpoint WHERE the chain breaks:
+  - Stage 1 — reachability: `GET /status.php` without credentials. Any HTTP response proves DNS +
+    TCP + TLS + HTTP all work; a transport exception means the network path itself is the problem.
+  - Stage 2 — authentication: the real WebDAV connect, so success means syncing will work.
+  - Failure notices name the broken stage: TLS/socket/DNS transport failures vs HTTP 401/403
+    credential rejection vs unhealthy server (5xx).
+
+### Fixed
+- Sync failures with raw native exception strings ("SSLHandshakeException: Connection closed by
+  peer", "SocketException", …) are now translated into actionable guidance (shared
+  `friendlyNetworkError` translator, used by both the sync engine and the login flow) — e.g. a cut
+  TLS handshake is explained as a network-path problem, not a credentials problem, with the
+  try-another-network advice.
+- Added a "Troubleshooting on restricted networks (HarmonyOS 出境易/卓易通)" section to the README.
+
 ## [1.0.3] - 2026-09-13
 
 ### Fixed
