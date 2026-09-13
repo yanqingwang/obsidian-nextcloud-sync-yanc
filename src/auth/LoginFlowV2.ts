@@ -10,6 +10,12 @@ import { LoginFlowInit, LoginFlowResult, LoginFlowError } from '../types';
  * 3. poll(): polls until approval completes and returns {@link LoginFlowResult}
  *
  * Everything goes through Obsidian's requestUrl (no fetch). No `any`; JSON is validated with type guards.
+ *
+ * Both endpoints tolerate transient socket failures: on mobile — and in particular inside the
+ * HarmonyOS "出境易"/卓易通 Android container, where the container's network stack aggressively
+ * reaps sockets and DNS/NAT hiccups surface as Java `SocketException` — any single dropped
+ * connection used to abort the whole login. Start retries with backoff; poll treats a failed
+ * request as "pending" until failures persist well beyond a resume from the browser.
  */
 /**
  * Default "the app came back to the foreground" signal (issue #34). Mobile suspends the webview's
@@ -48,44 +54,79 @@ export class LoginFlowV2 {
    * budget anyone can reason about once the OS starts suspending timers mid-flow.
    */
   static readonly POLL_DEADLINE_MS = 20 * 60 * 1000;
+  /**
+   * Per-request hard timeout. `requestUrl` has none, and in the HarmonyOS 出境易/卓易通 container a
+   * wedged socket can stay pending for minutes; without this the login hangs instead of failing.
+   */
+  static readonly REQUEST_TIMEOUT_MS = 30_000;
+  /**
+   * `start()` retries a request this many times when no HTTP response arrived at all (socket reset,
+   * DNS hiccup, timeout) — the transient failure class the HarmonyOS container produces in bursts.
+   */
+  static readonly START_ATTEMPTS = 3;
+  /**
+   * Consecutive poll requests that may fail (no HTTP response) before the flow reports
+   * {@link LoginFlowError}-free abandonment via an `error` result. Resume from the browser is exactly
+   * when stale sockets fail in a burst, so this must tolerate well over a couple of drops.
+   */
+  static readonly MAX_CONSECUTIVE_POLL_FAILURES = 15;
+  /** Upper bound on the failure backoff between polls (linear growth from POLL_INTERVAL_MS). */
+  static readonly MAX_POLL_FAILURE_BACKOFF_MS = 15_000;
 
   /**
    * Starts the Login Flow.
    * @param serverBaseUrl Server base URL without `/remote.php/...`
+   * @param sleep Wait function between retries, injectable for testing
    * @returns Start info (browser URL and polling endpoint)
    * @throws {LoginFlowError} If the start POST fails
    */
-  static async start(serverBaseUrl: string): Promise<LoginFlowInit> {
+  static async start(
+    serverBaseUrl: string,
+    sleep: (ms: number) => Promise<void> = (ms) => new Promise((r) => window.setTimeout(r, ms)),
+  ): Promise<LoginFlowInit> {
     const base = serverBaseUrl.replace(/\/$/, '');
-    const res = await requestUrl({
-      url: `${base}/index.php/login/v2`,
-      method: 'POST',
-      headers: { 'User-Agent': 'Obsidian Nextcloud Sync' },
-      throw: false,
-    });
-    if (res.status === 404 || res.status === 405) {
-      throw new LoginFlowError('unsupported');
+    let lastErr: unknown = null;
+    for (let attempt = 0; attempt < this.START_ATTEMPTS; attempt++) {
+      try {
+        const res = await withTimeout(requestUrl({
+          url: `${base}/index.php/login/v2`,
+          method: 'POST',
+          headers: { 'User-Agent': 'Obsidian Nextcloud Sync' },
+          throw: false,
+        }), this.REQUEST_TIMEOUT_MS);
+        if (res.status === 404 || res.status === 405) {
+          throw new LoginFlowError('unsupported');
+        }
+        if (res.status < 200 || res.status >= 300) {
+          throw new LoginFlowError(`HTTP ${res.status}`);
+        }
+        const init = this.parseInit(res.json);
+        if (!init) throw new LoginFlowError('invalid start response');
+        return init;
+      } catch (err) {
+        // HTTP-level outcomes (unsupported / status codes / bad payload) are definitive — retry
+        // only the transport class, where no HTTP response exists to act on.
+        if (err instanceof LoginFlowError) throw err;
+        lastErr = err;
+        if (attempt < this.START_ATTEMPTS - 1) await sleep(1000 * (attempt + 1));
+      }
     }
-    if (res.status < 200 || res.status >= 300) {
-      throw new LoginFlowError(`HTTP ${res.status}`);
-    }
-    const init = this.parseInit(res.json);
-    if (!init) throw new LoginFlowError('invalid start response');
-    return init;
+    throw lastErr;
   }
 
   /**
    * Checks for approval completion exactly once. Returns `pending` before approval, `success` once done.
+   * Network failures throw — the poll loop decides whether they are transient.
    * @returns Polling result (discriminated union)
    */
   static async pollOnce(init: LoginFlowInit): Promise<LoginFlowResult> {
-    const res = await requestUrl({
+    const res = await withTimeout(requestUrl({
       url: init.pollEndpoint,
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `token=${encodeURIComponent(init.pollToken)}`,
       throw: false,
-    });
+    }), this.REQUEST_TIMEOUT_MS);
     if (res.status === 404) return { status: 'pending' };
     if (res.status < 200 || res.status >= 300) return { status: 'pending' };
     const ok = this.parseSuccess(res.json);
@@ -103,6 +144,11 @@ export class LoginFlowV2 {
    * on the server is never collected. Racing the resume signal both unsticks the loop and makes the
    * first poll after the user returns immediate, which is exactly the moment approval has just landed.
    *
+   * A poll request that gets no HTTP response at all (socket reset, timeout — the burst the HarmonyOS
+   * 出境易 container produces right when the app resumes with a stale socket pool) is treated as
+   * "pending": the loop backs off, keeps polling, and only gives up after
+   * {@link MAX_CONSECUTIVE_POLL_FAILURES} consecutive transport failures.
+   *
    * @param sleep Wait function injectable for testing (defaults to a setTimeout-based one)
    * @param deps Clock and resume-signal seams, injectable for testing
    */
@@ -118,9 +164,25 @@ export class LoginFlowV2 {
     let wake: (() => void) | null = null;
     const unsubscribe = onResume(() => wake?.());
     try {
+      let consecutiveFailures = 0;
       while (now() < deadline) {
-        const result = await this.pollOnce(init);
+        let result: LoginFlowResult;
+        try {
+          result = await this.pollOnce(init);
+          consecutiveFailures = 0;
+        } catch (err) {
+          consecutiveFailures++;
+          if (consecutiveFailures > this.MAX_CONSECUTIVE_POLL_FAILURES) {
+            return { status: 'error', reason: err instanceof Error ? err.message : String(err) };
+          }
+          result = { status: 'pending' };
+        }
         if (result.status === 'success') return result;
+        // Back off linearly while the connection keeps failing (capped), so a flapping socket pool
+        // gets time to re-establish instead of being hammered every 2 s.
+        const waitMs = consecutiveFailures > 0
+          ? Math.min(this.POLL_INTERVAL_MS * consecutiveFailures, this.MAX_POLL_FAILURE_BACKOFF_MS)
+          : this.POLL_INTERVAL_MS;
         await new Promise<void>((resolve) => {
           let settled = false;
           const finish = (): void => {
@@ -132,7 +194,7 @@ export class LoginFlowV2 {
           wake = finish;
           // The timer may never fire (suspended webview); `finish` is idempotent, so whichever of the
           // two arrives first wins and the loser is a no-op when it eventually runs.
-          void sleep(this.POLL_INTERVAL_MS).then(finish);
+          void sleep(waitMs).then(finish);
         });
       }
       return { status: 'timeout' };
@@ -170,4 +232,53 @@ export class LoginFlowV2 {
     }
     return { server, loginName, appPassword };
   }
+}
+
+/**
+ * Races a request against a hard timeout. Window timers (same idiom as network/requestWithTimeout.ts)
+ * — the a-layer test file aliases the node globals to `window` since jest's node env lacks one.
+ */
+function withTimeout<T>(p: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    const timer = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new Error(`Login request timed out after ${Math.round(timeoutMs / 1000)}s`));
+    }, timeoutMs);
+    p.then(
+      (v) => { if (!settled) { settled = true; window.clearTimeout(timer); resolve(v); } },
+      (e) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        reject(e instanceof Error ? e : new Error(String(e)));
+      },
+    );
+  });
+}
+
+/**
+ * Converts a login-flow failure into a short, actionable message. Mobile `requestUrl` errors arrive
+ * as raw native exception strings ("SocketException: Connection reset", "SSLException", …) that are
+ * meaningless to users — and in the HarmonyOS 出境易/卓易通 Android container they are the *normal*
+ * symptom of the container reaping sockets, not a misconfiguration. Returns the raw message when
+ * nothing matches.
+ */
+export function friendlyLoginError(err: unknown): string {
+  const msg = err instanceof Error ? err.message : String(err);
+  if (/socket|ECONNRESET|ECONNABORTED|EPIPE|connection reset|broken pipe|网络/i.test(msg)) {
+    return 'connection to the server was dropped (socket error). Check the network, then retry — ' +
+      'on HarmonyOS devices (出境易/卓易通) this is often transient; if it persists, sign in with a manual app password.';
+  }
+  if (/SSL|TLS|handshake|certificate/i.test(msg)) {
+    return 'secure connection failed (SSL/TLS). Check that the server URL uses the correct https address and a valid certificate.';
+  }
+  if (/UnknownHost|ENOTFOUND|resolve|EAI_AGAIN/i.test(msg)) {
+    return 'server address could not be resolved. Check the server URL and DNS/network access.';
+  }
+  if (/timed out/i.test(msg)) {
+    return 'the server did not respond in time. Check the network or server status, then retry.';
+  }
+  return msg;
 }

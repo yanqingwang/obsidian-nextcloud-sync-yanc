@@ -1,5 +1,9 @@
+// The a-layer runs under jest's `node` env, which has no `window`; LoginFlowV2's timeout race uses
+// window timers (as it must inside Obsidian). Alias the node globals so the code is exercisable here.
+(globalThis as unknown as { window: unknown }).window = globalThis;
+
 import { requestUrl } from 'obsidian';
-import { LoginFlowV2 } from '../../../src/auth/LoginFlowV2';
+import { LoginFlowV2, friendlyLoginError } from '../../../src/auth/LoginFlowV2';
 import { LoginFlowError } from '../../../src/types';
 
 const mockRequestUrl = requestUrl as unknown as jest.Mock;
@@ -87,9 +91,9 @@ describe('LoginFlowV2', () => {
         { now: fakeClock(1000), onResume },
       );
 
-      // Let the first poll settle, then simulate the user coming back from the browser.
-      await Promise.resolve();
-      await Promise.resolve();
+      // Let the first poll settle: a macrotask boundary guarantees every pending microtask has run,
+      // so the loop is parked in its wait and `wake` is registered before the resume signal fires.
+      await new Promise((r) => setTimeout(r, 0));
       expect(resume).not.toBeNull();
       (resume as unknown as () => void)();
 
@@ -112,6 +116,81 @@ describe('LoginFlowV2', () => {
       // Nextcloud's LoginFlowV2Mapper::lifetime is 1200 s; giving up earlier would strand a token
       // the server would still honour, which is what the old 90-iteration cap effectively did.
       expect(LoginFlowV2.POLL_DEADLINE_MS).toBe(20 * 60 * 1000);
+    });
+  });
+
+  // HarmonyOS 出境易/卓易通 compatibility: the Android container's network stack reaps sockets in
+  // bursts (SocketException), and the burst lands exactly when the app resumes from the approval
+  // browser with a stale socket pool. A single transport failure must never abort the login.
+  describe('[LF-3] transient transport failures are retried, not fatal', () => {
+    const socketError = new Error('SocketException: Connection reset');
+
+    it('start() retries a transport failure and succeeds on a later attempt', async () => {
+      mockRequestUrl
+        .mockRejectedValueOnce(socketError)
+        .mockReturnValueOnce(res(200, {
+          poll: { token: 'tok', endpoint: 'https://nc/login/v2/poll' },
+          login: 'https://nc/login/flow',
+        }));
+      const init = await LoginFlowV2.start('https://nc', noSleep);
+      expect(init.pollToken).toBe('tok');
+      expect(mockRequestUrl).toHaveBeenCalledTimes(2);
+    });
+
+    it('start() gives up with the transport error after all attempts fail', async () => {
+      mockRequestUrl.mockRejectedValue(socketError);
+      await expect(LoginFlowV2.start('https://nc', noSleep)).rejects.toBe(socketError);
+      expect(mockRequestUrl).toHaveBeenCalledTimes(LoginFlowV2.START_ATTEMPTS);
+    });
+
+    it('start() does not retry a definitive HTTP outcome (404 → unsupported)', async () => {
+      mockRequestUrl.mockReturnValue(res(404));
+      await expect(LoginFlowV2.start('https://nc', noSleep)).rejects.toMatchObject(
+        { reason: 'unsupported' } as Partial<LoginFlowError>,
+      );
+      expect(mockRequestUrl).toHaveBeenCalledTimes(1);
+    });
+
+    it('poll() survives a transient poll failure right after resume and still collects approval', async () => {
+      mockRequestUrl
+        .mockRejectedValueOnce(socketError) // the resume-time socket burst
+        .mockReturnValueOnce(res(200, { server: 'https://nc', loginName: 'erin', appPassword: 'pw' }));
+      const r = await LoginFlowV2.poll({ pollToken: 't', pollEndpoint: 'e', loginUrl: 'l' }, noSleep, {
+        now: fakeClock(1000), onResume: noResume,
+      });
+      expect(r).toEqual({ status: 'success', server: 'https://nc', loginName: 'erin', appPassword: 'pw' });
+    });
+
+    it('poll() reports an error result only after sustained consecutive transport failures', async () => {
+      mockRequestUrl.mockRejectedValue(socketError);
+      const r = await LoginFlowV2.poll({ pollToken: 't', pollEndpoint: 'e', loginUrl: 'l' }, noSleep, {
+        now: fakeClock(60_000), onResume: noResume,
+      });
+      expect(r).toEqual({ status: 'error', reason: socketError.message });
+      expect(mockRequestUrl).toHaveBeenCalledTimes(LoginFlowV2.MAX_CONSECUTIVE_POLL_FAILURES + 1);
+    });
+
+    it('poll() resets the failure streak after a healthy response', async () => {
+      // Fail just under the cap, recover once, then keep polling pending — the loop must not
+      // carry the old streak forward and abandon a flow that is merely flaky again.
+      mockRequestUrl
+        .mockRejectedValueOnce(socketError)
+        .mockRejectedValueOnce(socketError)
+        .mockReturnValueOnce(res(404))
+        .mockRejectedValueOnce(socketError)
+        .mockRejectedValueOnce(socketError)
+        .mockReturnValueOnce(res(200, { server: 'https://nc', loginName: 'fred', appPassword: 'pw' }));
+      const r = await LoginFlowV2.poll({ pollToken: 't', pollEndpoint: 'e', loginUrl: 'l' }, noSleep, {
+        now: fakeClock(1000), onResume: noResume,
+      });
+      expect(r).toEqual({ status: 'success', server: 'https://nc', loginName: 'fred', appPassword: 'pw' });
+    });
+
+    it('friendlyLoginError() translates native socket strings into actionable guidance', () => {
+      const text = friendlyLoginError(new Error('SocketException: Connection reset by peer'));
+      expect(text).toContain('socket error');
+      expect(text).toContain('HarmonyOS');
+      expect(friendlyLoginError(new Error('something unusual'))).toBe('something unusual');
     });
   });
 });

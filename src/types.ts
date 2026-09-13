@@ -527,7 +527,9 @@ export type LoginFlowResult =
   | { status: 'success'; server: string; loginName: string; appPassword: string }
   | { status: 'pending' }
   | { status: 'timeout' }
-  | { status: 'unsupported' };
+  | { status: 'unsupported' }
+  /** Polling abandoned early: too many consecutive transport failures (socket resets, timeouts). */
+  | { status: 'error'; reason: string };
 
 // ── US2: File Versions ──────────────────────────────────────────────────────
 

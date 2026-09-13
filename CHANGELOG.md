@@ -11,6 +11,22 @@ and folded into the next stable entry.
 
 > A Japanese translation is available at [`CHANGELOG.ja.md`](CHANGELOG.ja.md).
 
+## [1.0.2] - 2026-09-13
+
+### Fixed
+- Login Flow v2 no longer aborts on a single transient network failure — the reported cause of
+  "Login failed: SocketException" when signing in from Obsidian running in the HarmonyOS 出境易/卓易通
+  Android container (and other hostile mobile network environments):
+  - `start()` now retries the initial POST up to 3 attempts with backoff when no HTTP response arrives
+    (socket reset, DNS hiccup, timeout); definitive HTTP outcomes (404/405 → unsupported) are not retried.
+  - Each login request is raced against a 30 s hard timeout, so a wedged socket hangs the flow for
+    seconds instead of indefinitely.
+  - The poll loop treats a failed poll request as "pending" with linear backoff (capped at 15 s) and
+    only reports failure after 15 consecutive transport failures — the resume-from-browser moment,
+    when the container's reaped socket pool fails in a burst, no longer cancels an approved login.
+  - Native exception strings ("SocketException: Connection reset", "SSLException", …) are translated
+    into actionable messages, including a pointer to the manual app-password fallback.
+
 ## [1.0.1] - 2026-08-29
 
 ### Fixed

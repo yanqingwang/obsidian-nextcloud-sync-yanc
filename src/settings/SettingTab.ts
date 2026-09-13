@@ -20,7 +20,7 @@ import type ObsidianNextcloudsync from '../main';
 import { LoginFlowError, DavSyncSettings } from '../types';
 import { parseMergeableExtensions, formatMergeableExtensions } from '../util/mergeableExtensions';
 import { FolderInputSuggest } from '../ui/FolderInputSuggest';
-import { LoginFlowV2 } from '../auth/LoginFlowV2';
+import { LoginFlowV2, friendlyLoginError } from '../auth/LoginFlowV2';
 import { MIN_NEXTCLOUD_VERSION, isSupportedNextcloudVersion } from '../util/version';
 import { CONFIG_SYNC_CATEGORIES } from '../sync/ConfigSyncResolver';
 import { TOOLTIPS, SERVER_URL_DESC, SIGN_IN_HELP, SIGN_IN_MANUAL_DIVIDER, CONFIG_CATEGORY_TOOLTIP } from './tooltips';
@@ -959,7 +959,7 @@ export class NextcloudSyncSettingTab extends PluginSettingTab {
       void this.plugin.logger.log('login: start() ok (loginUrl received)');
       const opened = window.open(init.loginUrl, '_blank');
       void this.plugin.logger.log(`login: window.open → ${opened ? 'opened' : 'BLOCKED (returned null)'}`);
-      new Notice('Waiting for browser approval… (up to 3 minutes)', 8000);
+      new Notice('Waiting for browser approval… (up to 20 minutes)', 8000);
 
       void this.plugin.logger.log('login: polling started');
       const result = await LoginFlowV2.poll(init);
@@ -974,6 +974,12 @@ export class NextcloudSyncSettingTab extends PluginSettingTab {
         this.render(); // Re-render the settings panel
       } else if (result.status === 'timeout') {
         new Notice('⏱️ login timed out. Please try again.', 6000);
+      } else if (result.status === 'error') {
+        // Sustained transport failures while polling — common on HarmonyOS (出境易/卓易通 container),
+        // where the container reaps sockets. The approval itself usually succeeded; re-polling with a
+        // fresh connection is enough, so point at the manual fallback rather than generic failure.
+        void this.plugin.logger.log(`login: poll transport error — ${result.reason}`, 'error');
+        new Notice(`❌ Lost connection while waiting for approval (${friendlyLoginError(result.reason)})`, 9000);
       } else {
         new Notice('This server does not support login flow. Please enter an app password manually.', 8000);
       }
@@ -982,7 +988,7 @@ export class NextcloudSyncSettingTab extends PluginSettingTab {
       if (err instanceof LoginFlowError && err.reason === 'unsupported') {
         new Notice('This server does not support login flow. Please enter an app password manually.', 8000);
       } else {
-        new Notice(`❌ Login failed: ${(err as Error).message}`, 6000);
+        new Notice(`❌ Login failed: ${friendlyLoginError(err)}`, 8000);
       }
     }
   }
