@@ -14,9 +14,10 @@ describe('friendlyNetworkError', () => {
     expect(friendlyNetworkError(new Error('SSLException: Read error'))).toContain('TLS handshake');
   });
 
-  it('translates socket resets with the HarmonyOS hint', () => {
+  it('translates socket resets with the mobile/HarmonyOS hint', () => {
     const text = friendlyNetworkError(new Error('SocketException: Connection reset by peer'));
     expect(text).toContain('socket error');
+    expect(text).toContain('mobile devices');
     expect(text).toContain('HarmonyOS');
   });
 

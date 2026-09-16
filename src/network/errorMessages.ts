@@ -13,7 +13,7 @@ export function friendlyNetworkError(err: unknown): string {
   }
   if (/socket|ECONNRESET|ECONNABORTED|EPIPE|connection reset|broken pipe|网络/i.test(msg)) {
     return 'connection to the server was dropped (socket error). Check the network, then retry — ' +
-      'on HarmonyOS devices (出境易/卓易通) this is often transient; if it persists, sign in with a manual app password.';
+      'on mobile devices (especially HarmonyOS 出境易/卓易通 containers) this is often transient; if it persists, sign in with a manual app password.';
   }
   if (/UnknownHost|ENOTFOUND|resolve|EAI_AGAIN/i.test(msg)) {
     return 'server address could not be resolved. Check the server URL and DNS/network access.';
