@@ -1,5 +1,5 @@
-import { App, Modal, Setting } from 'obsidian';
-import { SyncErrorDetail, SyncFileOp, SyncHistoryEntry } from '../types';
+import { App, Modal, Notice, Setting } from 'obsidian';
+import { SyncErrorDetail, SyncFileOp, SyncHistoryEntry, SyncSessionSummary } from '../types';
 import {
   DIR_BREAKER_REPORT_FILENAME,
   FILE_BREAKER_REPORT_FILENAME,
@@ -165,20 +165,8 @@ export class SyncStatusModal extends Modal {
     // and re-renders, so every section below reflects the filter immediately.
     this.addFilterRow();
 
-    // Last session summary (unfiltered totals for the session — a summary, not a list).
-    const s = report.summary;
-    if (s) {
-      // 24h absolute clock (HH:mm, date-prefixed across midnight) — consistent with the per-run /
-      // per-entry timestamps below; locale-dependent toLocaleString() (12h/AM-PM) is avoided (spec §13).
-      const when = formatClock24(s.startedAt, Date.now());
-      contentEl.createEl('p', {
-        cls: 'setting-item-description',
-        text: `Last sync: ${when}  ·  ↑ ${s.uploadedCount}  ↓ ${s.downloadedCount}  `
-          + `⟷ ${s.mergedCount}  ⚠️ ${s.conflictedCount}  ✗ ${s.errorCount}`,
-      });
-    } else {
-      contentEl.createEl('p', { text: 'No sync has run yet in this session.', cls: 'setting-item-description' });
-    }
+    // Session history section (last 5 syncs)
+    this.addSessionHistorySection(report.sessionHistory);
 
     // Apply the status filter to every section.
     const filtered = filterReport(report, this.filterState.checked);
@@ -277,6 +265,60 @@ export class SyncStatusModal extends Modal {
             this.close();
           });
         }
+      }
+    }
+  }
+
+  /**
+   * Show the last 5 sync session summaries, newest first. Each row shows the sync time, counts,
+   * and a "Copy errors" button if there were errors.
+   */
+  private addSessionHistorySection(sessions: SyncSessionSummary[]): void {
+    const { contentEl } = this;
+    new Setting(contentEl).setName(`📋 Sync history (last ${sessions.length})`).setHeading();
+
+    if (sessions.length === 0) {
+      contentEl.createEl('p', {
+        text: 'No sync history available.',
+        cls: 'setting-item-description',
+      });
+      return;
+    }
+
+    const now = Date.now();
+    const list = contentEl.createDiv({ cls: 'ncs-status-list' });
+
+    for (const s of sessions) {
+      const when = formatClock24(s.startedAt, now);
+      const duration = s.completedAt
+        ? `${Math.round((s.completedAt - s.startedAt) / 1000)}s`
+        : 'in progress';
+
+      const row = list.createDiv({ cls: 'ncs-status-row' });
+      const summaryText = row.createDiv({ cls: 'ncs-history-line' });
+      summaryText.createSpan({
+        text: `⏱ ${when} (${duration})  ·  ↑ ${s.uploadedCount}  ↓ ${s.downloadedCount}  `
+          + `⟷ ${s.mergedCount}  ⚠️ ${s.conflictedCount}  ✗ ${s.errorCount}`,
+      });
+
+      // Add "Copy errors" button if there are errors
+      if (s.errorCount > 0 && s.errors.length > 0) {
+        const copyBtn = row.createEl('button', {
+          cls: 'mod-warning',
+          text: '📋 Copy errors',
+        });
+        copyBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          // Build error text for clipboard
+          const errorText = s.errors.map((err: SyncErrorDetail) => {
+            const path = err.path || '(session-level)';
+            return `${path}\n  ${err.message}`;
+          }).join('\n\n');
+          const fullText = `Sync errors at ${when}:\n${errorText}`;
+          void navigator.clipboard.writeText(fullText).then(() => {
+            new Notice('Errors copied to clipboard');
+          });
+        });
       }
     }
   }

@@ -27,6 +27,7 @@ function makeReport(): SyncStatusReport {
     },
     conflictedFiles: ['c.md'],
     retryFiles: ['r.md'],
+    sessionHistory: [],
     history: [
       hist('a.md', 'uploaded'),
       hist('b.md', 'downloaded'),

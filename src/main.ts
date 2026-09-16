@@ -549,6 +549,7 @@ export default class ObsidianNextcloudsync extends Plugin {
     const { StateDB } = await import('./data/StateDB');
     const { MergeBaseStore } = await import('./data/MergeBaseStore');
     const { SyncHistoryStore } = await import('./data/SyncHistoryStore');
+    const { SyncSessionHistoryStore } = await import('./data/SyncSessionHistoryStore');
     const { StatusBarItem } = await import('./ui/StatusBarItem');
     const { NoticeStatusBar } = await import('./ui/NoticeStatusBar');
     const { WebDAVFactory } = await import('./network/WebDAVFactory');
@@ -571,6 +572,8 @@ export default class ObsidianNextcloudsync extends Plugin {
     this.cleanSideStore = cleanSideStore;
     const historyStore = new SyncHistoryStore(this.app.vault.adapter, pluginDir);
     await historyStore.load();
+    const sessionHistoryStore = new SyncSessionHistoryStore(this.app.vault.adapter, pluginDir);
+    await sessionHistoryStore.load();
 
     // Mobile has no visible status bar (addStatusBarItem is unavailable there), so feedback is
     // surfaced as a single reused Notice toast via NoticeStatusBar. Both implement IStatusBar, so
@@ -596,6 +599,7 @@ export default class ObsidianNextcloudsync extends Plugin {
       cleanSideStore,
       statusBar,
       historyStore,
+      sessionHistoryStore,
       webdavFactory,
       pluginDir,
       configDir: this.app.vault.configDir,

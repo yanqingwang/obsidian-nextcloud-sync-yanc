@@ -10,6 +10,8 @@ export interface SyncStatusReport {
   retryFiles: string[];
   /** Per-file sync outcomes within the last 24h, newest first. */
   history: SyncHistoryEntry[];
+  /** Last 5 sync session summaries, newest first. */
+  sessionHistory: SyncSessionSummary[];
 }
 
 /** Every status the dialog can show — one filter checkbox is rendered per entry (in this order). */
