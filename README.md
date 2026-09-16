@@ -35,6 +35,12 @@ This plugin is still young and some behaviour can be rough around the edges. **P
 
 ---
 
+## What's new in Nextcloud sync YANC (1.0.7)
+
+> **1.0.7** removes all platform-specific references for a cleaner, more universal experience.
+
+- **Platform-agnostic** — removed all HarmonyOS/出境易/卓易通 references from code, comments, error messages, and documentation.
+
 ## What's new in Nextcloud sync YANC (1.0.6)
 
 > **1.0.6** adds sync session history and error copying to make debugging easier.

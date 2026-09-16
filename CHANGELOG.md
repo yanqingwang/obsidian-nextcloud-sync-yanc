@@ -11,6 +11,13 @@ and folded into the next stable entry.
 
 > A Japanese translation is available at [`CHANGELOG.ja.md`](CHANGELOG.ja.md).
 
+## [1.0.7] - 2026-09-16
+
+### Changed
+- Removed all platform-specific references (HarmonyOS, 出境易, 卓易通) from code, comments,
+  error messages, documentation, and tests. The plugin now uses generic, platform-agnostic
+  language throughout.
+
 ## [1.0.6] - 2026-09-16
 
 ### Added
