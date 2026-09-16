@@ -23,8 +23,7 @@ and folded into the next stable entry.
 ## [1.0.5] - 2026-09-16
 
 ### Fixed
-- Socket error messages now mention "mobile devices" instead of only "HarmonyOS devices",
-  making them more accurate for users on other platforms (iOS, Android, etc.).
+- Socket error messages now mention "mobile devices" for accurate guidance on all platforms.
 
 ## [1.0.4] - 2026-09-13
 
@@ -59,15 +58,15 @@ and folded into the next stable entry.
   it probes the server with the entered credentials, reports the result with actionable errors
   (401/403 → check username/password, maintenance mode, transport failures translated), and on
   success rebuilds the sync engine. This is the reliable sign-in path on hostile mobile networks
-  (e.g. HarmonyOS 出境易/卓易通) where the browser login flow v2 fails at the transport level.
+  where the browser login flow v2 fails at the transport level.
 - Browser-login failure notices now explicitly point at the manual app-password + verify path.
 
 ## [1.0.2] - 2026-09-13
 
 ### Fixed
 - Login Flow v2 no longer aborts on a single transient network failure — the reported cause of
-  "Login failed: SocketException" when signing in from Obsidian running in the HarmonyOS 出境易/卓易通
-  Android container (and other hostile mobile network environments):
+  "Login failed: SocketException" when signing in from Obsidian running in mobile containers
+  (and other hostile mobile network environments):
   - `start()` now retries the initial POST up to 3 attempts with backoff when no HTTP response arrives
     (socket reset, DNS hiccup, timeout); definitive HTTP outcomes (404/405 → unsupported) are not retried.
   - Each login request is raced against a 30 s hard timeout, so a wedged socket hangs the flow for
