@@ -35,6 +35,13 @@ This plugin is still young and some behaviour can be rough around the edges. **P
 
 ---
 
+## What's new in Nextcloud sync YANC (1.0.6)
+
+> **1.0.6** adds sync session history and error copying to make debugging easier.
+
+- **Sync history** — the Sync Status dialog now shows the last 5 sync sessions with timestamps, durations, and file operation counts.
+- **Copy errors button** — when a sync has errors, click "📋 Copy errors" to copy all error details (paths and messages) to the clipboard for easy sharing.
+
 ## What's new in Nextcloud sync YANC (1.0.5)
 
 > **1.0.5** makes socket error messages more generic for all platforms.

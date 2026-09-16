@@ -11,6 +11,15 @@ and folded into the next stable entry.
 
 > A Japanese translation is available at [`CHANGELOG.ja.md`](CHANGELOG.ja.md).
 
+## [1.0.6] - 2026-09-16
+
+### Added
+- **Sync session history** — the Sync Status dialog now shows the last 5 sync sessions with
+  their timestamps, durations, and file operation counts (upload/download/merge/conflict/error).
+- **Copy errors button** — when a sync session has errors, a "📋 Copy errors" button appears
+  next to the session entry. Clicking it copies all error details (paths and messages) to the
+  clipboard for easy sharing in bug reports.
+
 ## [1.0.5] - 2026-09-16
 
 ### Fixed
