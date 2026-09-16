@@ -11,6 +11,12 @@ and folded into the next stable entry.
 
 > A Japanese translation is available at [`CHANGELOG.ja.md`](CHANGELOG.ja.md).
 
+## [1.0.5] - 2026-09-16
+
+### Fixed
+- Socket error messages now mention "mobile devices" instead of only "HarmonyOS devices",
+  making them more accurate for users on other platforms (iOS, Android, etc.).
+
 ## [1.0.4] - 2026-09-13
 
 ### Added
