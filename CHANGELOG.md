@@ -43,7 +43,7 @@ and folded into the next stable entry.
   `friendlyNetworkError` translator, used by both the sync engine and the login flow) — e.g. a cut
   TLS handshake is explained as a network-path problem, not a credentials problem, with the
   try-another-network advice.
-- Added a "Troubleshooting on restricted networks (HarmonyOS 出境易/卓易通)" section to the README.
+- Added a "Troubleshooting on restricted networks" section to the README.
 
 ## [1.0.3] - 2026-09-13
 

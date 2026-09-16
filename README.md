@@ -46,7 +46,7 @@ This plugin is still young and some behaviour can be rough around the edges. **P
 
 > **1.0.5** makes socket error messages more generic for all platforms.
 
-- **Improved error messages** — socket error messages now mention "mobile devices" instead of only "HarmonyOS devices", making them more accurate for users on other platforms (iOS, Android, etc.).
+- **Improved error messages** — socket error messages now mention "mobile devices" for accurate guidance on all platforms.
 
 ## What's new in Nextcloud sync YANC (1.0.4)
 
@@ -54,11 +54,11 @@ This plugin is still young and some behaviour can be rough around the edges. **P
 
 - **"Test connection" button** — stage 1 proves the device can reach the server at all (DNS / TCP / TLS / HTTP, no credentials); stage 2 verifies the credentials with the same WebDAV machinery syncing uses. The failure notice names the broken stage: TLS or socket transport failure vs HTTP 401/403 credential rejection vs an unhealthy server.
 - **Readable sync failures** — raw native exception strings ("SSLHandshakeException: Connection closed by peer", "SocketException", …) shown by "Sync failed" are translated into guidance (a cut TLS handshake is a network-path problem, not a credentials problem).
-- **New README section**: [Troubleshooting on restricted networks (HarmonyOS 出境易/卓易通)](#troubleshooting-on-restricted-networks-harmonyos-出境易卓易通).
+- **New README section**: [Troubleshooting on restricted networks](#troubleshooting-on-restricted-networks).
 
 ## What's new in Nextcloud sync YANC (1.0.3)
 
-> **1.0.3** makes manual password sign-in work reliably — the path to use when the browser login flow fails on hostile mobile networks (HarmonyOS 出境易/卓易通).
+> **1.0.3** makes manual password sign-in work reliably — the path to use when the browser login flow fails on hostile mobile networks.
 
 - **Manual sign-in takes effect immediately** — fixed: an engine initialized at startup kept a null-password client, so an app password entered afterwards was never used until the app was restarted. "Sync now" now detects changed credentials and rebuilds the engine.
 - **Paste field for the app password** — stored encrypted in Obsidian's Secret Storage on commit; the secret never lives in the DOM or `data.json`.
@@ -66,7 +66,7 @@ This plugin is still young and some behaviour can be rough around the edges. **P
 
 ## What's new in Nextcloud sync YANC (1.0.2)
 
-> **1.0.2** makes browser sign-in resilient on hostile mobile networks — the reported cause of "Login failed: SocketException" when running Obsidian inside the HarmonyOS 出境易/卓易通 Android container.
+> **1.0.2** makes browser sign-in resilient on hostile mobile networks — the reported cause of "Login failed: SocketException" when running Obsidian inside mobile containers.
 
 - **Retried & timeout-guarded login requests** — the initial Login Flow v2 POST retries transient transport failures (up to 3 attempts with backoff); every login request now races a 30 s hard timeout.
 - **Tolerant approval polling** — a dropped poll is treated as "pending" with linear backoff instead of aborting the login; only 15 consecutive transport failures give up. The socket burst right after returning from the approval browser no longer cancels an approved sign-in.
@@ -183,12 +183,10 @@ Your Vault is synced into a folder named after the Vault on the Nextcloud side, 
 
 ---
 
-## Troubleshooting on restricted networks (HarmonyOS 出境易/卓易通)
+## Troubleshooting on restricted networks
 
-Obsidian running inside the HarmonyOS 出境易/卓易通 Android container shares its network stack, which
-is far more aggressive about reaping sockets and cutting TLS handshakes than ordinary Android. The
-plugin's network layer is built for this (retries, hard timeouts, tolerant login polling), but when
-a failure does get through, these are the steps that resolve it:
+The plugin's network layer includes retries, hard timeouts, and tolerant login polling to handle
+challenging network conditions. When a failure does get through, these steps resolve it:
 
 1. **Press "Test connection"** in the plugin settings. It reports which stage failed:
    - *"TLS handshake was cut off"* or *"socket error"* → the network path is the problem (see step 2–4).
@@ -196,12 +194,12 @@ a failure does get through, these are the steps that resolve it:
    - *"server reachable but reported HTTP 5xx"* → the server is unhealthy or in maintenance.
 2. **Sign in with an app password instead of the browser flow.** Generate one at Nextcloud web →
    Settings → Security → Devices & Sessions, paste it into the plugin's **App password** field, then
-   press **Test connection**. The browser login flow (Login Flow v2) is much more sensitive to
+   press **Test connection**. The browser login flow (Login Flow v2) is more sensitive to
    socket churn than plain WebDAV.
 3. **Switch networks.** If "Test connection" passes on a phone hotspot but not on Wi-Fi (or vice
    versa), the failing network is interfering with TLS — a common pattern in containers and
    firewalled networks. `SSLHandshakeException: Connection closed by peer` almost always means this.
-4. **Keep Obsidian in the foreground** while connecting. Backgrounded apps have their sockets reaped;
+4. **Keep Obsidian in the foreground** while connecting. Backgrounded apps may have their sockets reaped;
    the first request after returning from another app may need one retry.
 5. **Still failing?** Enable logging (Settings → enable logging) and check the log file — every
    connection attempt is recorded with the failing stage.

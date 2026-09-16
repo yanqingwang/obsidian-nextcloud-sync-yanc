@@ -119,9 +119,9 @@ describe('LoginFlowV2', () => {
     });
   });
 
-  // HarmonyOS 出境易/卓易通 compatibility: the Android container's network stack reaps sockets in
-  // bursts (SocketException), and the burst lands exactly when the app resumes from the approval
-  // browser with a stale socket pool. A single transport failure must never abort the login.
+  // Mobile compatibility: the network stack may reap sockets in bursts (SocketException), and the
+  // burst lands exactly when the app resumes from the approval browser with a stale socket pool.
+  // A single transport failure must never abort the login.
   describe('[LF-3] transient transport failures are retried, not fatal', () => {
     const socketError = new Error('SocketException: Connection reset');
 
@@ -189,7 +189,6 @@ describe('LoginFlowV2', () => {
     it('friendlyLoginError() translates native socket strings into actionable guidance', () => {
       const text = friendlyLoginError(new Error('SocketException: Connection reset by peer'));
       expect(text).toContain('socket error');
-      expect(text).toContain('HarmonyOS');
       expect(friendlyLoginError(new Error('something unusual'))).toBe('something unusual');
     });
   });

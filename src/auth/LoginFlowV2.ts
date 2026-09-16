@@ -12,9 +12,8 @@ import { LoginFlowInit, LoginFlowResult, LoginFlowError } from '../types';
  *
  * Everything goes through Obsidian's requestUrl (no fetch). No `any`; JSON is validated with type guards.
  *
- * Both endpoints tolerate transient socket failures: on mobile — and in particular inside the
- * HarmonyOS "出境易"/卓易通 Android container, where the container's network stack aggressively
- * reaps sockets and DNS/NAT hiccups surface as Java `SocketException` — any single dropped
+ * Both endpoints tolerate transient socket failures: on mobile, network stacks may aggressively
+ * reap sockets and DNS/NAT hiccups surface as Java `SocketException`. Any single dropped
  * connection used to abort the whole login. Start retries with backoff; poll treats a failed
  * request as "pending" until failures persist well beyond a resume from the browser.
  */
@@ -56,13 +55,13 @@ export class LoginFlowV2 {
    */
   static readonly POLL_DEADLINE_MS = 20 * 60 * 1000;
   /**
-   * Per-request hard timeout. `requestUrl` has none, and in the HarmonyOS 出境易/卓易通 container a
-   * wedged socket can stay pending for minutes; without this the login hangs instead of failing.
+   * Per-request hard timeout. `requestUrl` has none, and a wedged socket can stay pending for
+   * minutes; without this the login hangs instead of failing.
    */
   static readonly REQUEST_TIMEOUT_MS = 30_000;
   /**
    * `start()` retries a request this many times when no HTTP response arrived at all (socket reset,
-   * DNS hiccup, timeout) — the transient failure class the HarmonyOS container produces in bursts.
+   * DNS hiccup, timeout) — the transient failure class mobile containers produce in bursts.
    */
   static readonly START_ATTEMPTS = 3;
   /**
@@ -145,8 +144,8 @@ export class LoginFlowV2 {
    * on the server is never collected. Racing the resume signal both unsticks the loop and makes the
    * first poll after the user returns immediate, which is exactly the moment approval has just landed.
    *
-   * A poll request that gets no HTTP response at all (socket reset, timeout — the burst the HarmonyOS
-   * 出境易 container produces right when the app resumes with a stale socket pool) is treated as
+   * A poll request that gets no HTTP response at all (socket reset, timeout — the burst that mobile
+   * containers produce when the app resumes with a stale socket pool) is treated as
    * "pending": the loop backs off, keeps polling, and only gives up after
    * {@link MAX_CONSECUTIVE_POLL_FAILURES} consecutive transport failures.
    *

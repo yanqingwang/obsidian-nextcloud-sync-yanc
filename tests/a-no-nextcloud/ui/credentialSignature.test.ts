@@ -1,7 +1,7 @@
 import { credentialSignature } from '../../../src/settings/credentialSignature';
 
 // The credential fingerprint lets runSyncNow detect "credentials changed since the engine was
-// built" — the manual-sign-in-after-startup case (HarmonyOS 出境易: paste app password, sync).
+// built" — the manual-sign-in-after-startup case (paste app password, sync).
 describe('credentialSignature', () => {
   it('changes when the pasted password value changes (same secret id)', () => {
     const a = credentialSignature('https://nc', 'alice', 'obsidian-nextcloudsync-password', 'old-secret');

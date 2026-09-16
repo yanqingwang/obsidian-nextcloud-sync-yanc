@@ -956,9 +956,8 @@ export class NextcloudSyncSettingTab extends PluginSettingTab {
    * then activates syncing if everything passed.
    *
    * Stage 1 — reachability: GET /status.php without credentials. Any HTTP response proves DNS +
-   * TCP + TLS + HTTP all work; a transport exception (SSLHandshakeException, SocketException — the
-   * HarmonyOS 出境易 container's signature failures) means the network path itself is the problem
-   * and there is no point blaming credentials.
+   * TCP + TLS + HTTP all work; a transport exception (SSLHandshakeException, SocketException)
+   * means the network path itself is the problem and there is no point blaming credentials.
    * Stage 2 — authentication: the real WebDAV client connect (same machinery as syncing), so
    * "verified" means the engine will really be able to talk to the server. On success the sync
    * engine is rebuilt with the fresh credentials.
@@ -1065,9 +1064,9 @@ export class NextcloudSyncSettingTab extends PluginSettingTab {
       } else if (result.status === 'timeout') {
         new Notice('⏱️ login timed out. Please try again.', 6000);
       } else if (result.status === 'error') {
-        // Sustained transport failures while polling — common on HarmonyOS (出境易/卓易通 container),
-        // where the container reaps sockets. The approval itself usually succeeded; re-polling with a
-        // fresh connection is enough, so point at the manual fallback rather than generic failure.
+        // Sustained transport failures while polling. The approval itself usually succeeded;
+        // re-polling with a fresh connection is enough, so point at the manual fallback rather
+        // than generic failure.
         void this.plugin.logger.log(`login: poll transport error — ${result.reason}`, 'error');
         new Notice(`❌ Lost connection while waiting for approval (${friendlyLoginError(result.reason)})`, 9000);
       } else {

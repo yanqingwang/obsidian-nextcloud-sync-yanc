@@ -1,6 +1,6 @@
 import { friendlyNetworkError } from '../../../src/network/errorMessages';
 
-// HarmonyOS 出境易/卓易通 containers surface raw Java exception strings; each class must map to
+// Mobile containers surface raw Java exception strings; each class must map to
 // actionable guidance instead of the raw message.
 describe('friendlyNetworkError', () => {
   it('translates SSLHandshakeException (TLS cut off mid-handshake)', () => {
@@ -14,11 +14,10 @@ describe('friendlyNetworkError', () => {
     expect(friendlyNetworkError(new Error('SSLException: Read error'))).toContain('TLS handshake');
   });
 
-  it('translates socket resets with the mobile/HarmonyOS hint', () => {
+  it('translates socket resets with the mobile hint', () => {
     const text = friendlyNetworkError(new Error('SocketException: Connection reset by peer'));
     expect(text).toContain('socket error');
     expect(text).toContain('mobile devices');
-    expect(text).toContain('HarmonyOS');
   });
 
   it('translates DNS and timeout failures', () => {
