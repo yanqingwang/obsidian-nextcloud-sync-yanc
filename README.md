@@ -35,6 +35,12 @@ This plugin is still young and some behaviour can be rough around the edges. **P
 
 ---
 
+## What's new in Nextcloud sync YANC (1.0.5)
+
+> **1.0.5** makes socket error messages more generic for all platforms.
+
+- **Improved error messages** — socket error messages now mention "mobile devices" instead of only "HarmonyOS devices", making them more accurate for users on other platforms (iOS, Android, etc.).
+
 ## What's new in Nextcloud sync YANC (1.0.4)
 
 > **1.0.4** turns the connection check into a two-stage diagnostic that pinpoints exactly where the chain breaks, and translates raw TLS/socket failures into actionable guidance.
