@@ -296,12 +296,12 @@ describe('DirectoryReconciler.reconcileDirectories — ordering and safety', () 
       };
     const s = summary();
     await reconciler.reconcileDirectories(client, s);
-    // Each retry attempt calls deleteCollection; 3 attempts = 3 recorded calls.
-    expect(calls.deleteCollection).toEqual(['Stuck', 'Stuck', 'Stuck']);
+    // Each retry attempt calls deleteCollection; 5 attempts = 5 recorded calls.
+    expect(calls.deleteCollection).toEqual(['Stuck', 'Stuck', 'Stuck', 'Stuck', 'Stuck']);
     expect(s.errorCount).toBe(1);
     expect(s.errors[0].path).toBe('Stuck');
     expect(s.errors[0].message).toContain('dir delete (remote) failed');
-  });
+  }, 30000);
 
   it('stops pulling new work once cancelled', async () => {
     let cancelled = false;

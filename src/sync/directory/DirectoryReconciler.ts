@@ -114,7 +114,10 @@ export class DirectoryReconciler {
       }
     }
     // DELETE remote (children before parents; probe + optional lock, retry on 423 lock).
-    const MAX_DELETE_RETRIES = 3;
+    // Retries with exponential backoff to handle transient lock contention from other clients
+    // (e.g. Nextcloud desktop/mobile sync, web interface, or another Obsidian instance).
+    const MAX_DELETE_RETRIES = 5;
+    const BASE_DELAY_MS = 500;
     for (const p of deleteRemote.sort(deepFirst)) {
       if (this.deps.isCancelled()) break;
       let token: string | null = null;
@@ -132,21 +135,25 @@ export class DirectoryReconciler {
             break;
           } catch (err) {
             if (err instanceof FileLockedError && attempt < MAX_DELETE_RETRIES - 1) {
-              const delayMs = 500 * Math.pow(2, attempt);
-              void this.deps.logger?.log(`dir-sync: locked → ${p} (attempt ${attempt + 1}/${MAX_DELETE_RETRIES}), retrying in ${delayMs}ms`);
+              const delayMs = BASE_DELAY_MS * Math.pow(2, attempt); // 1s, 2s, 4s, 8s
+              void this.deps.logger?.log(`dir-sync: locked → ${p} (attempt ${attempt + 1}/${MAX_DELETE_RETRIES}), retrying in ${delayMs}ms — another client holds the lock`);
               await this.sleep(delayMs);
               continue;
             }
             throw err;
           }
         }
-        if (!deleteSucceeded) throw new Error(`dir delete (remote) failed after ${MAX_DELETE_RETRIES} attempts: ${p}`);
+        if (!deleteSucceeded) throw new Error(`dir delete (remote) failed after ${MAX_DELETE_RETRIES} attempts (all locked): ${p}`);
         this.deps.stateDB.deleteDir(p);
         summary.deletedCount++;
         this.deps.journal.recordHistory(p, 'deleted');
       } catch (err) {
         summary.errorCount++;
-        summary.errors.push({ path: p, message: `dir delete (remote) failed: ${(err as Error).message}` });
+        const baseMsg = (err as Error).message;
+        const hint = baseMsg.includes('locked')
+          ? ' — another client (Nextcloud desktop/mobile/web) may be syncing; retry when idle'
+          : '';
+        summary.errors.push({ path: p, message: `dir delete (remote) failed: ${baseMsg}${hint}` });
       } finally {
         await this.deps.transfer.releaseLock(client, p, token);
       }
