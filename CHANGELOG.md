@@ -11,6 +11,11 @@ and folded into the next stable entry.
 
 > A Japanese translation is available at [`CHANGELOG.ja.md`](CHANGELOG.ja.md).
 
+## [1.0.8] - 2026-09-20
+
+### Fixed
+- Retry remote directory DELETE on HTTP 423 (Locked) with exponential backoff to handle transient lock contention.
+
 ## [1.0.7] - 2026-09-16
 
 ### Changed

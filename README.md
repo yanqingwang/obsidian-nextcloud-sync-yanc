@@ -35,6 +35,12 @@ This plugin is still young and some behaviour can be rough around the edges. **P
 
 ---
 
+## What's new in Nextcloud sync YANC (1.0.8)
+
+> **1.0.8** fixes transient lock contention during remote directory deletion.
+
+- **Retry on HTTP 423** — remote directory DELETE now retries with exponential backoff when the server returns 423 (Locked), handling transient lock contention gracefully.
+
 ## What's new in Nextcloud sync YANC (1.0.7)
 
 > **1.0.7** removes all platform-specific references for a cleaner, more universal experience.
