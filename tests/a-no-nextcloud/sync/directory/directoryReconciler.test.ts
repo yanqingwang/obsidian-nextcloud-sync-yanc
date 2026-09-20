@@ -10,7 +10,7 @@
 import { DirectoryReconciler, DirectoryDeps } from '../../../../src/sync/directory/DirectoryReconciler';
 import { SyncJournal } from '../../../../src/sync/session/SyncJournal';
 import { TransferService } from '../../../../src/sync/transfer/TransferService';
-import { SyncSessionSummary, RemoteDirInfo, DirState } from '../../../../src/types';
+import { SyncSessionSummary, RemoteDirInfo, DirState, FileLockedError } from '../../../../src/types';
 import { IWebDAVClient } from '../../../../src/network/IWebDAVClient';
 import { TFolder } from '../../support/obsidian';
 
@@ -253,6 +253,54 @@ describe('DirectoryReconciler.reconcileDirectories — ordering and safety', () 
     });
     await reconciler.reconcileDirectories(client, summary());
     expect(calls.lock).toEqual(['X']);
+  });
+
+  it('retries a locked remote directory delete up to 3 times before failing', async () => {
+    let attempts = 0;
+    const { reconciler, client, calls } = build({
+      remote: [dir('Locked')], tracked: [{ path: 'Locked', remoteFileId: null }],
+    }, {
+      transfer: {
+        acquireLock: async () => null,
+        releaseLock: async () => { /* noop */ },
+      } as unknown as TransferService,
+    });
+    // Override the mock deleteCollection to throw FileLockedError twice, then succeed.
+    const origDelete = (client as unknown as { deleteCollection: (p: string) => Promise<void> }).deleteCollection;
+    (client as unknown as { deleteCollection: (p: string) => Promise<void> }).deleteCollection =
+      async (p: string) => {
+        attempts++;
+        if (attempts < 3) throw new FileLockedError(p);
+        await origDelete(p);
+      };
+    const s = summary();
+    await reconciler.reconcileDirectories(client, s);
+    expect(calls.deleteCollection).toEqual(['Locked']);
+    expect(s.deletedCount).toBe(1);
+    expect(s.errorCount).toBe(0);
+  });
+
+  it('records an error when a locked directory remains locked after all retries', async () => {
+    const { reconciler, client, calls } = build({
+      remote: [dir('Stuck')], tracked: [{ path: 'Stuck', remoteFileId: null }],
+    }, {
+      transfer: {
+        acquireLock: async () => null,
+        releaseLock: async () => { /* noop */ },
+      } as unknown as TransferService,
+    });
+    (client as unknown as { deleteCollection: (p: string) => Promise<void> }).deleteCollection =
+      async (p: string) => {
+        calls.deleteCollection.push(p);
+        throw new FileLockedError(p);
+      };
+    const s = summary();
+    await reconciler.reconcileDirectories(client, s);
+    // Each retry attempt calls deleteCollection; 3 attempts = 3 recorded calls.
+    expect(calls.deleteCollection).toEqual(['Stuck', 'Stuck', 'Stuck']);
+    expect(s.errorCount).toBe(1);
+    expect(s.errors[0].path).toBe('Stuck');
+    expect(s.errors[0].message).toContain('dir delete (remote) failed');
   });
 
   it('stops pulling new work once cancelled', async () => {

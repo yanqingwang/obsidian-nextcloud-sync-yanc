@@ -337,6 +337,7 @@ export class NextcloudClient implements IWebDAVClient {
       url: this.remoteUrl(path), method: 'DELETE', headers: { Authorization: this.authHeader, ...NO_CACHE_HEADERS }, throw: false,
     });
     if (res.status === 404) return; // already gone — the desired end state.
+    if (res.status === 423) throw new FileLockedError(path); // locked by another client — caller should retry.
     if (res.status < 200 || res.status >= 300) throw new NetworkError(res.status, res.text, 'DELETE');
   }
 
@@ -435,6 +436,7 @@ export class NextcloudClient implements IWebDAVClient {
     // Blind delete (P1-B): a 404 means the file is already gone — exactly the desired end state, so
     // treat it as success rather than an error (no pre-deletion existence probe is needed).
     if (res.status === 404) return;
+    if (res.status === 423) throw new FileLockedError(path); // locked by another client — caller should retry.
     if (res.status < 200 || res.status >= 300) throw new NetworkError(res.status, res.text, 'DELETE');
   }
 

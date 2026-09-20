@@ -12,6 +12,7 @@ import {
   ConflictError,
   FeatureUnsupportedError,
   PreconditionFailedError,
+  FileLockedError,
 } from '../types';
 import { IWebDAVClient } from './IWebDAVClient';
 import { DavSyncSettings } from '../types';
@@ -184,6 +185,7 @@ export class StandardWebDAVClient implements IWebDAVClient {
   async deleteCollection(path: string): Promise<void> {
     const res = await this.req({ url: this.remoteUrl(path), method: 'DELETE', headers: { Authorization: this.authHeader, ...NO_CACHE_HEADERS }, throw: false });
     if (res.status === 404) return;
+    if (res.status === 423) throw new FileLockedError(path); // locked by another client — caller should retry.
     if (res.status < 200 || res.status >= 300) throw new NetworkError(res.status, res.text, 'DELETE');
   }
 
@@ -232,6 +234,7 @@ export class StandardWebDAVClient implements IWebDAVClient {
   async deleteFile(path: string, _expectedRemoteId: string): Promise<void> {
     const res = await this.req({ url: this.remoteUrl(path), method: 'DELETE', headers: { Authorization: this.authHeader, ...NO_CACHE_HEADERS }, throw: false });
     if (res.status === 404) return; // blind delete (P1-B): already gone = success
+    if (res.status === 423) throw new FileLockedError(path); // locked by another client — caller should retry.
     if (res.status < 200 || res.status >= 300) throw new NetworkError(res.status, res.text, 'DELETE');
   }
 

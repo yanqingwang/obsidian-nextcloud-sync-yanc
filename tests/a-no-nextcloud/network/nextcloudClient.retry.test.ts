@@ -1,6 +1,6 @@
 import { requestUrl } from 'obsidian';
 import { NextcloudClient } from '../../../src/network/NextcloudClient';
-import { DEFAULT_SETTINGS, DavSyncSettings } from '../../../src/types';
+import { DEFAULT_SETTINGS, DavSyncSettings, FileLockedError } from '../../../src/types';
 
 const mockRequestUrl = requestUrl as unknown as jest.Mock;
 
@@ -146,5 +146,26 @@ describe('NextcloudClient — read-only retry on transient req() rejection (feat
 
     await expect(client().getSyncToken()).resolves.toBeNull();
     expect(mockRequestUrl).not.toHaveBeenCalled();
+  });
+});
+
+// [SPEC:NET-4] HTTP 423 on a directory DELETE means the collection is locked by another client.
+// Both NextcloudClient and StandardWebDAVClient must throw FileLockedError (not a generic
+// NetworkError) so that the caller can distinguish a transient lock from a permanent failure
+// and retry with backoff.
+describe('NextcloudClient — 423 maps to FileLockedError', () => {
+  beforeEach(() => {
+    mockRequestUrl.mockReset();
+    mockRequestUrl.mockImplementation(() => res(423));
+  });
+
+  it('deleteCollection throws FileLockedError on HTTP 423', async () => {
+    await expect(client().deleteCollection('reports')).rejects.toThrow(FileLockedError);
+    await expect(client().deleteCollection('reports')).rejects.toThrow('reports');
+  });
+
+  it('deleteFile throws FileLockedError on HTTP 423', async () => {
+    await expect(client().deleteFile('Notes/a.md', 'rid')).rejects.toThrow(FileLockedError);
+    await expect(client().deleteFile('Notes/a.md', 'rid')).rejects.toThrow('Notes/a.md');
   });
 });

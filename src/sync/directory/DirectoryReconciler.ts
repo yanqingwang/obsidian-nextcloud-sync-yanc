@@ -10,7 +10,7 @@
 // of the plan is refused wholesale and recorded as a session error. The two resolve* methods below
 // are how the user then settles those refused paths without waiting for another sync.
 import { TFolder, normalizePath, Vault, App } from 'obsidian';
-import { SyncSessionSummary, RemoteDirInfo } from '../../types';
+import { SyncSessionSummary, RemoteDirInfo, FileLockedError } from '../../types';
 import { StateDB } from '../../data/StateDB';
 import { IWebDAVClient } from '../../network/IWebDAVClient';
 import { SyncJournal } from '../session/SyncJournal';
@@ -113,7 +113,8 @@ export class DirectoryReconciler {
         summary.errors.push({ path: p, message: `dir create (local) failed: ${(err as Error).message}` });
       }
     }
-    // DELETE remote (children before parents; probe + optional lock).
+    // DELETE remote (children before parents; probe + optional lock, retry on 423 lock).
+    const MAX_DELETE_RETRIES = 3;
     for (const p of deleteRemote.sort(deepFirst)) {
       if (this.deps.isCancelled()) break;
       let token: string | null = null;
@@ -123,7 +124,23 @@ export class DirectoryReconciler {
           void this.deps.logger?.log(`dir-sync: remote dir not empty yet — keeping → ${p}`);
           continue; // children pending — self-heal next sync
         }
-        await client.deleteCollection(p);
+        let deleteSucceeded = false;
+        for (let attempt = 0; attempt < MAX_DELETE_RETRIES; attempt++) {
+          try {
+            await client.deleteCollection(p);
+            deleteSucceeded = true;
+            break;
+          } catch (err) {
+            if (err instanceof FileLockedError && attempt < MAX_DELETE_RETRIES - 1) {
+              const delayMs = 500 * Math.pow(2, attempt);
+              void this.deps.logger?.log(`dir-sync: locked → ${p} (attempt ${attempt + 1}/${MAX_DELETE_RETRIES}), retrying in ${delayMs}ms`);
+              await this.sleep(delayMs);
+              continue;
+            }
+            throw err;
+          }
+        }
+        if (!deleteSucceeded) throw new Error(`dir delete (remote) failed after ${MAX_DELETE_RETRIES} attempts: ${p}`);
         this.deps.stateDB.deleteDir(p);
         summary.deletedCount++;
         this.deps.journal.recordHistory(p, 'deleted');
@@ -239,5 +256,9 @@ export class DirectoryReconciler {
       entry.dirBreakerSkipped = { deleteRemote: failedDeleteRemote, trashLocal: failedTrashLocal };
     }
     return { resolved, failed };
+  }
+
+  private sleep(ms: number): Promise<void> {
+    return new Promise((resolve) => window.setTimeout(resolve, ms));
   }
 }

@@ -174,6 +174,11 @@ export const CLAUSES: Clause[] = [
   // Read-only WebDAV requests (PROPFIND/GET) retry up to 2x on a transient req() rejection; writes and
   // REPORT are explicitly out of scope (specs/main/spec.md §5.6a, feature 067).
   { id: 'NET-3', source: 'specs/main/spec.md §5.6a (read-only WebDAV requests retry up to 2x on transient failure, writes/REPORT excluded)', layer: 'a' },
+  // HTTP 423 (Locked) on DELETE is mapped to FileLockedError (not a generic NetworkError) so callers
+  // can distinguish a transient lock from a permanent failure and retry with backoff. Directory
+  // reconciliation retries up to 3 times with exponential backoff (500ms/1s/2s) before recording the
+  // error (preserving the StateDB tracking entry for the next sync).
+  { id: 'NET-4', source: 'specs/main/spec.md §5.6a (423 on DELETE → FileLockedError; DirectoryReconciler retries 3× with backoff before recording)', layer: 'a' },
   // --- BUG: findbugs 2026-07-06 high-priority data-safety / concurrency fixes (feature 055) ---
   { id: 'G1-1', source: 'specs/main/spec.md §18.1 (a merge upload failure keeps the file flagged; the merge result is never silently dropped)', layer: 'a' },
   { id: 'G1-2', source: 'specs/main/spec.md §18.1 (StateDB tracking is cleared only on a successful remote delete; a real failure keeps the entry so the deletion retries)', layer: 'a' },
