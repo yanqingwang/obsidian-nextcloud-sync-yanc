@@ -21,6 +21,7 @@ import { LoginFlowError, DavSyncSettings, NetworkError, CredentialsNotFoundError
 import { parseMergeableExtensions, formatMergeableExtensions } from '../util/mergeableExtensions';
 import { FolderInputSuggest } from '../ui/FolderInputSuggest';
 import { LoginFlowV2, friendlyLoginError } from '../auth/LoginFlowV2';
+import { verifyAppPassword, AppPasswordRejectedError } from '../auth/verifyCredentials';
 import { friendlyNetworkError } from '../network/errorMessages';
 import { checkReachability } from '../network/ConnectionTester';
 import { MIN_NEXTCLOUD_VERSION, isSupportedNextcloudVersion } from '../util/version';
@@ -995,7 +996,9 @@ export class NextcloudSyncSettingTab extends PluginSettingTab {
       } else if (err instanceof MaintenanceModeError) {
         text = 'the server is in maintenance mode. Try again later.';
       } else if (err instanceof NetworkError && (err.status === 401 || err.status === 403)) {
-        text = `the server is reachable, but rejected the credentials (HTTP ${err.status}). Check the username and app password.`;
+        text = `the server is reachable, but rejected the credentials (HTTP ${err.status}). ` +
+          'The app password may have expired or been revoked — Nextcloud deletes app passwords unused for 365 days — ' +
+          'so sign in again via browser; otherwise check the username and app password.';
       } else {
         text = friendlyNetworkError(err);
       }
@@ -1054,12 +1057,37 @@ export class NextcloudSyncSettingTab extends PluginSettingTab {
       const result = await LoginFlowV2.poll(init);
       void this.plugin.logger.log(`login: poll finished — status=${result.status}`);
       if (result.status === 'success') {
-        this.plugin.settings.username = result.loginName;
+        // Post-login verification (Nextcloud Login Flow docs): the freshly issued app password must
+        // actually authenticate, and WebDAV paths need the account's uid — the loginName may be an
+        // email address, which must never be used to build /remote.php/dav/files/<uid>/ paths.
+        let uid = result.loginName;
+        let verifyNote = '';
+        try {
+          const user = await verifyAppPassword(serverBaseUrl, result.loginName, result.appPassword);
+          uid = user.uid;
+          void this.plugin.logger.log(`login: app password verified (uid=${user.uid})`);
+        } catch (err) {
+          if (err instanceof AppPasswordRejectedError) {
+            // Definitive refusal: storing it would only move the failure to the first sync.
+            void this.plugin.logger.log(`login: app password REJECTED (HTTP ${err.status}) — not saved`);
+            new Notice(
+              `❌ The server rejected the new app password (HTTP ${err.status}). Nothing was saved — please try signing in again.`,
+              12000,
+            );
+            return;
+          }
+          // Transport/probe failure only: the server issued this password moments ago, so save it
+          // anyway, but never claim a check that did not actually happen.
+          const detail = err instanceof Error ? err.message : String(err);
+          verifyNote = ` (credential check skipped: ${friendlyNetworkError(err)})`;
+          void this.plugin.logger.log(`login: verification skipped — ${detail}`);
+        }
+        this.plugin.settings.username = uid;
         saveAppPassword(this.app, DEFAULT_PASSWORD_SECRET_ID, result.appPassword);
         this.plugin.settings.passwordSecretId = DEFAULT_PASSWORD_SECRET_ID;
         await this.plugin.saveSettings();
         await this.plugin.initSyncEngine();
-        new Notice(`✅ Logged in as ${result.loginName}`, 6000);
+        new Notice(`✅ Logged in as ${result.loginName}${verifyNote}`, verifyNote ? 12000 : 6000);
         this.render(); // Re-render the settings panel
       } else if (result.status === 'timeout') {
         new Notice('⏱️ login timed out. Please try again.', 6000);

@@ -150,8 +150,13 @@ export class DirectoryReconciler {
       } catch (err) {
         summary.errorCount++;
         const baseMsg = (err as Error).message;
+        // 423 has two very different causes and the retry loop above only helps with the first:
+        // (a) another client is mid-sync — transient, retry when idle; (b) a STALE server-side
+        // storage lock (a crashed/hung request never released it) — retrying forever never helps,
+        // only the server admin can clear it (maintenance mode + empty oc_file_locks, or restart
+        // php-fpm/redis). The message must point at (b) or users read "retry when idle" as the fix.
         const hint = baseMsg.includes('locked')
-          ? ' — another client (Nextcloud desktop/mobile/web) may be syncing; retry when idle'
+          ? ' — another client may be syncing (retry when idle); if this persists across syncs it is a stale server-side lock: server admin should clear it (maintenance mode + empty oc_file_locks table, or restart php-fpm/redis)'
           : '';
         summary.errors.push({ path: p, message: `dir delete (remote) failed: ${baseMsg}${hint}` });
       } finally {
