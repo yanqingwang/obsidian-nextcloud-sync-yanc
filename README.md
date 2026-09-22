@@ -35,6 +35,13 @@ This plugin is still young and some behaviour can be rough around the edges. **P
 
 ---
 
+## What's new in Nextcloud sync YANC (1.0.9)
+
+> **1.0.9** verifies your sign-in immediately and clarifies persistent lock errors.
+
+- **Sign-in verification** — after browser sign-in the new app password is checked against the server right away (and the account's uid is stored), so bad credentials fail at sign-in, not mid-sync.
+- **Clearer lock errors** — persistent "File is locked" failures now explain stale server locks and how the server admin can clear them; the 401 message notes that app passwords expire after 365 days unused.
+
 ## What's new in Nextcloud sync YANC (1.0.8)
 
 > **1.0.8** fixes transient lock contention during remote directory deletion.

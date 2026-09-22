@@ -11,6 +11,20 @@ and folded into the next stable entry.
 
 > A Japanese translation is available at [`CHANGELOG.ja.md`](CHANGELOG.ja.md).
 
+## [1.0.9] - 2026-09-22
+
+### Added
+- **Sign-in verification** — after browser sign-in, the freshly issued app password is immediately
+  verified against the server (OCS `/ocs/v1.php/cloud/user`) and the account's uid is stored, so a
+  bad credential fails at sign-in instead of at first sync (per Nextcloud's Login Flow docs on
+  login name vs. email login).
+
+### Changed
+- The 401/403 connection-check message now explains that app passwords can expire (Nextcloud
+  deletes app passwords unused for 365 days) and points at signing in again.
+- Persistent "File is locked" (HTTP 423) errors on directory deletion now distinguish a busy
+  transient lock from a stale server-side lock and tell the server admin how to clear it.
+
 ## [1.0.8] - 2026-09-20
 
 ### Fixed
