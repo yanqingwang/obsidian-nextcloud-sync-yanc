@@ -10,10 +10,10 @@
 > 0.7.43 and then released 1.0.0–1.0.9 on its own, so its 1.0.0–1.0.8 are *different codebases* from
 > upstream's releases of the same numbers. 1.1.0 is the first version built on upstream's 1.0.8.
 >
-> The plugin keeps the upstream `id` (`nextcloud-sync`), so it **cannot** be listed in the official
-> Obsidian community store under that id — that id is registered to the upstream author. Install it
-> from the [releases page](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/releases), or
-> with [BRAT](https://github.com/TomBraun/obsidian-brat) pointed at this repository.
+> This fork publishes under its own plugin id, `nextcloud-sync-yanc`, which is separate from
+> upstream's `nextcloud-sync`. The two can be installed side by side — they keep separate settings
+> and separate vault plugin folders. **If you installed the fork before 1.1.1 under the old
+> `nextcloud-sync` id, uninstall that copy first**, or the two will fight over the same folder.
 >
 > **Report fork-specific issues here:** [yanqingwang/obsidian-nextcloud-sync-yanc](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/issues)
 
@@ -48,9 +48,10 @@ This plugin is still young and some behaviour can be rough around the edges. **P
 
 ---
 
-## What's new in this release (1.1.0)
+## What's new in this release (1.1.1)
 
-- **This release rebases the YANC fork onto upstream 1.0.8.** The fork had diverged at 0.7.43 and then released 1.0.0 through 1.0.9 on its own, so its version numbers collided with upstream's releases for the same numbers while missing 72 upstream commits. Any version at or below 1.0.8 in this fork's history is a **different codebase** from the upstream release of that number; 1.1.0 makes the numbering unambiguous again. You now also get upstream's mobile UI entry points, foreground-resume sync, and lock-owner reporting on `HTTP 423`.
+- **The plugin id and name now identify the fork** (`nextcloud-sync-yanc` / *Nextcloud sync YANC*), so this fork can be listed in the community directory and installed side by side with upstream. If you installed it before 1.1.1 under the old `nextcloud-sync` id, uninstall that copy first. Your stored app password is unaffected.
+- **1.1.0 rebased the YANC fork onto upstream 1.0.8.** The fork had diverged at 0.7.43 and then released 1.0.0 through 1.0.9 on its own, so its version numbers collided with upstream's releases for the same numbers while missing 72 upstream commits. Any version at or below 1.0.8 in this fork's history is a **different codebase** from the upstream release of that number; 1.1.0 makes the numbering unambiguous again. You now also get upstream's mobile UI entry points, foreground-resume sync, and lock-owner reporting on `HTTP 423`.
 - **Fixed: signing in on Android could fail with "connection to the server was dropped (socket error)"** — a single dropped socket, routine when Android returns to the foreground with a stale socket pool, aborted the sign-in. Sign-in now retries the start (3 attempts), tolerates up to 15 consecutive poll failures with backoff, and times out each request at 30 s instead of hanging. A socket-storm abort now reports its actual cause instead of looking like a sign-in timeout.
 - **Added: "Test connection"** — a two-stage check: an unauthenticated `/status.php` reachability probe, then the stored credentials. This separates a broken network path (a TLS-intercepting proxy, for example) from a wrong or expired app password, which a single failure message could never distinguish. The 401/403 result also notes that Nextcloud deletes app passwords unused for 365 days.
 - **Added: sync session history with "Copy errors"** — the last 5 sessions with their upload/download/conflict/error counts, and a one-tap copy of a failed session's errors, which is the quickest way to turn a real failure into a useful bug report.
@@ -136,21 +137,22 @@ Mobile is supported, with a few platform-aware differences (desktop behaviour is
 
 ## Installation
 
-> **This fork is not in the Community Plugins browser.** It shares the upstream plugin `id`, which is
-> already registered to the upstream author, so the browser entry points at upstream's repository.
-> Install it from this repository's releases, or with BRAT.
+### From the Community Plugins browser
 
-### From this fork's releases (recommended for this fork)
+Search for **Nextcloud sync YANC** in **Settings → Community plugins → Browse**.
+
+### From this fork's releases (manual)
 
 1. Open the [releases page](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/releases) and
    download the assets for the version you want: `main.js`, `manifest.json`, `styles.css`.
-2. Copy them into `<YourVault>/.obsidian/plugins/nextcloud-sync/`.
-   The folder name **must** be `nextcloud-sync` — it is the manifest `id`, and Obsidian will not load
-   a plugin whose folder name does not match.
-3. Reload Obsidian and enable **Nextcloud Sync** under **Settings → Community plugins**.
+2. Copy them into `<YourVault>/.obsidian/plugins/nextcloud-sync-yanc/`.
+   The folder name **must** be `nextcloud-sync-yanc` — it is the manifest `id`, and Obsidian will not
+   load a plugin whose folder name does not match.
+3. Reload Obsidian and enable **Nextcloud sync YANC** under **Settings → Community plugins**.
 
 On **Android**, Obsidian has no "install from zip" option, so copy the three files into the vault's
-`.obsidian/plugins/nextcloud-sync/` folder over a file manager or sync client, then restart Obsidian.
+`.obsidian/plugins/nextcloud-sync-yanc/` folder over a file manager or sync client, then restart
+Obsidian.
 
 ### Via BRAT (auto-updates)
 
@@ -158,13 +160,12 @@ Install [BRAT](https://github.com/TomBraun/obsidian-brat), then add this reposit
 (`yanqingwang/obsidian-nextcloud-sync-yanc`) as a beta plugin. BRAT installs from the latest release
 and notifies you when a newer one is published.
 
-### From the Community Plugins browser (upstream, not this fork)
-1. In Obsidian, open **Settings → Community plugins**.
-2. Disable Restricted mode, click **Browse**, and search for **Nextcloud Sync**.
-3. **Install**, then **Enable**.
+### Upstream, not this fork
 
-Note this installs **upstream** 1.0.8, which does **not** include this fork's Android login
-resilience or connection test.
+The original plugin by Daisuke ITO is listed separately as **Nextcloud Sync**
+([siosig/obsidian-nextcloudsync](https://github.com/siosig/obsidian-nextcloudsync)). Installing that
+one gives you upstream 1.0.8, which does **not** include this fork's Android login resilience or
+connection test. The two use different plugin ids, so both can be installed at once.
 
 ### Manual installation
 1. Download `main.js` and `manifest.json` (and `styles.css` if present) from the latest [GitHub Release](../../releases).

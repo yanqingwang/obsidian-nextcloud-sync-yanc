@@ -11,6 +11,22 @@ and folded into the next stable entry.
 
 > A Japanese translation is available at [`CHANGELOG.ja.md`](CHANGELOG.ja.md).
 
+## [1.1.1] - 2026-09-30
+
+### Changed
+- **The plugin id and name now identify the fork.** `id` is `nextcloud-sync-yanc` and the name is
+  `Nextcloud sync YANC`, instead of reusing upstream's `nextcloud-sync` / `Nextcloud Sync`. The
+  Obsidian community directory keys entries by id and hides a submission whose name collides with an
+  existing one, so reusing the upstream identity made the entry unlistable. With a distinct id the
+  fork can be listed on its own, and it can be installed side by side with upstream because the two
+  keep separate settings and separate vault plugin folders.
+
+  **Upgrading:** if you installed this fork before 1.1.1, it lived in
+  `.obsidian/plugins/nextcloud-sync/`. Uninstall that copy before installing 1.1.1, otherwise both
+  resolve to the same folder. Your stored app password is unaffected — it lives in Obsidian's secret
+  storage under a fixed key, not under the plugin id — so you only need to re-enter it if you choose
+  to start from a clean install.
+
 ## [1.1.0] - 2026-09-30
 
 This release **rebases the YANC fork onto upstream 1.0.8** and re-applies the fork's own work on
