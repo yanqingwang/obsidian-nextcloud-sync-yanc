@@ -1,4 +1,4 @@
-# Nextcloud Sync for Obsidian
+# Nextcloud sync YANC
 
 > [!IMPORTANT]
 > **これは YANC フォークです。** Daisuke ITO による

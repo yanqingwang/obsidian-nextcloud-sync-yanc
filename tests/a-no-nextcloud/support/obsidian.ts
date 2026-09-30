@@ -1,5 +1,5 @@
 // Obsidian API mock for Jest
-import { load, dump } from 'js-yaml';
+import { parse, stringify } from 'yaml';
 
 export class Plugin {
   app: App;
@@ -240,23 +240,23 @@ export function normalizePath(path: string): string {
 }
 
 /**
- * Test double for Obsidian's `parseYaml`. Wraps js-yaml's `load`. Obsidian returns
- * `null` for empty / whitespace-only input; this js-yaml build throws on empty input,
- * so we short-circuit that case to preserve Obsidian's contract.
+ * Test double for Obsidian's `parseYaml`. Wraps the `yaml` package's `parse`. Obsidian returns
+ * `null` for empty / whitespace-only input; we short-circuit that case explicitly to
+ * preserve Obsidian's contract independent of the parser's own behavior.
  */
 export function parseYaml(s: string): any {
   if (s == null) return null;
   if (s.trim() === '') return null;
-  return load(s);
+  return parse(s);
 }
 
 /**
- * Test double for Obsidian's `stringifyYaml`. Wraps js-yaml's `dump`. `lineWidth: -1`
+ * Test double for Obsidian's `stringifyYaml`. Wraps the `yaml` package's `stringify`. `lineWidth: 0`
  * disables line folding so arrays / long scalars serialize deterministically (matching
  * Obsidian's own stable output and keeping round-trips lossless).
  */
 export function stringifyYaml(obj: any): string {
-  return dump(obj, { lineWidth: -1 });
+  return stringify(obj, { lineWidth: 0, singleQuote: true });
 }
 
 /** Mirror of Obsidian's `FrontMatterInfo` (obsidian.d.ts). */

@@ -1,4 +1,4 @@
-# Nextcloud Sync for Obsidian
+# Nextcloud sync YANC
 
 > [!IMPORTANT]
 > **This is the YANC fork.** It is a fork of

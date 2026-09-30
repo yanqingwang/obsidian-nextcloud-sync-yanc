@@ -33,13 +33,15 @@ describe('[SPEC:SWC-2] src/**/*.ts contains no createEl(\'div\'|\'span\', ...) c
   });
 });
 
-// Feature 062: js-yaml is unused in production code (parseYaml/stringifyYaml cover it) and is
-// only consumed by test doubles, so it belongs in devDependencies, not dependencies.
-describe('[SPEC:SWC-4] js-yaml is classified as a devDependency, not a production dependency', () => {
-  it('[SPEC:SWC-4] package.json keeps js-yaml out of dependencies and in devDependencies', () => {
+// Feature 062 (updated): js-yaml is banned outright — Obsidian's review bot flags it even as a
+// devDependency, so the yaml test doubles import the `yaml` package instead and package.json
+// must not mention js-yaml anywhere.
+describe('[SPEC:SWC-4] js-yaml is fully removed from package.json', () => {
+  it('[SPEC:SWC-4] package.json contains no js-yaml in dependencies or devDependencies', () => {
     const pkg = JSON.parse(readFileSync(join(REPO_ROOT, 'package.json'), 'utf8'));
     expect(pkg.dependencies).not.toHaveProperty('js-yaml');
-    expect(pkg.devDependencies).toHaveProperty('js-yaml');
+    expect(pkg.devDependencies).not.toHaveProperty('js-yaml');
+    expect(pkg.devDependencies).toHaveProperty('yaml');
   });
 });
 
