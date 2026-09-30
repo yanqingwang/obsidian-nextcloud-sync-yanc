@@ -38,6 +38,11 @@ const BASELINE: { heading: string | null; rows: string[] }[] = [
     rows: [
       'Server URL',
       'Log in via browser (Nextcloud) — recommended',
+      // Added by this fork (not in specs/077 baseline.md): the two-stage reachability + credential
+      // check. Upstream has no manual fallback affordance at all, so on mobile — where browser
+      // sign-in is the only other path and it can fail on a socket storm — there was no way to
+      // tell a broken network path from a wrong password.
+      'Test connection',
       'Username',
       'App password',
       'Sync folder',
@@ -73,7 +78,7 @@ const BASELINE: { heading: string | null; rows: string[] }[] = [
   { heading: 'Maintenance', rows: ['Reset vault index', 'Mirror from remote', 'Last session summary'] },
 ];
 
-const STATIC_ROW_COUNT = BASELINE.reduce((n, s) => n + s.rows.length, 0); // 27
+const STATIC_ROW_COUNT = BASELINE.reduce((n, s) => n + s.rows.length, 0); // 28 (27 upstream + "Test connection")
 
 function makeHost(over: Partial<SettingDefinitionsHost> = {}): SettingDefinitionsHost {
   return {
@@ -85,6 +90,7 @@ function makeHost(over: Partial<SettingDefinitionsHost> = {}): SettingDefinition
     vaultName: 'TestVault',
     syncTargetUrl: () => 'https://example.invalid/dav/TestVault',
     runSyncNow: () => undefined,
+    testConnection: () => undefined,
     runRemoteMirror: () => undefined,
     resetVaultIndex: () => undefined,
     openSyncStatus: () => undefined,

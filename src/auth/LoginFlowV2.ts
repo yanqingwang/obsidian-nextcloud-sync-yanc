@@ -1,6 +1,7 @@
 import { requestUrl } from 'obsidian';
-import { LoginFlowInit, LoginFlowResult, LoginFlowError } from '../types';
+import { friendlyNetworkError } from '../network/errorMessages';
 import { onAppResume } from '../util/appResume';
+import { LoginFlowInit, LoginFlowResult, LoginFlowError } from '../types';
 
 /**
  * Nextcloud Login Flow v2 client.
@@ -11,14 +12,20 @@ import { onAppResume } from '../util/appResume';
  * 3. poll(): polls until approval completes and returns {@link LoginFlowResult}
  *
  * Everything goes through Obsidian's requestUrl (no fetch). No `any`; JSON is validated with type guards.
+ *
+ * Both endpoints tolerate transient socket failures: on mobile, network stacks may aggressively
+ * reap sockets and DNS/NAT hiccups surface as Java `SocketException`. Any single dropped
+ * connection used to abort the whole login. Start retries with backoff; poll treats a failed
+ * request as "pending" until failures persist well beyond a resume from the browser.
  */
 /**
  * Default "the app came back to the foreground" signal (issue #34). Mobile suspends the webview's
  * timers while the browser holds the foreground, so the poll loop needs a second way to be woken.
  *
- * The implementation moved to `util/appResume` in feature 079, where the same signal now also drives
- * a sync on resume. Behaviour is unchanged — same two events, same environment guard — so the
- * real-device coverage this path already has (`loginFlowResume.b3.test.ts`) still applies.
+ * The implementation lives in `util/appResume` (feature 079), where the same signal also drives a
+ * sync on resume — reusing it here keeps one definition of "the app resumed" instead of two that
+ * can drift. Behaviour is identical to the inline helper this replaced: same two events, same
+ * environment guard, so the real-device coverage (`loginFlowResume.b3.test.ts`) still applies.
  */
 const defaultOnResume = onAppResume;
 
@@ -43,44 +50,79 @@ export class LoginFlowV2 {
    * budget anyone can reason about once the OS starts suspending timers mid-flow.
    */
   static readonly POLL_DEADLINE_MS = 20 * 60 * 1000;
+  /**
+   * Per-request hard timeout. `requestUrl` has none, and a wedged socket can stay pending for
+   * minutes; without this the login hangs instead of failing.
+   */
+  static readonly REQUEST_TIMEOUT_MS = 30_000;
+  /**
+   * `start()` retries a request this many times when no HTTP response arrived at all (socket reset,
+   * DNS hiccup, timeout) — the transient failure class mobile containers produce in bursts.
+   */
+  static readonly START_ATTEMPTS = 3;
+  /**
+   * Consecutive poll requests that may fail (no HTTP response) before the flow reports
+   * {@link LoginFlowError}-free abandonment via an `error` result. Resume from the browser is exactly
+   * when stale sockets fail in a burst, so this must tolerate well over a couple of drops.
+   */
+  static readonly MAX_CONSECUTIVE_POLL_FAILURES = 15;
+  /** Upper bound on the failure backoff between polls (linear growth from POLL_INTERVAL_MS). */
+  static readonly MAX_POLL_FAILURE_BACKOFF_MS = 15_000;
 
   /**
    * Starts the Login Flow.
    * @param serverBaseUrl Server base URL without `/remote.php/...`
+   * @param sleep Wait function between retries, injectable for testing
    * @returns Start info (browser URL and polling endpoint)
    * @throws {LoginFlowError} If the start POST fails
    */
-  static async start(serverBaseUrl: string): Promise<LoginFlowInit> {
+  static async start(
+    serverBaseUrl: string,
+    sleep: (ms: number) => Promise<void> = (ms) => new Promise((r) => window.setTimeout(r, ms)),
+  ): Promise<LoginFlowInit> {
     const base = serverBaseUrl.replace(/\/$/, '');
-    const res = await requestUrl({
-      url: `${base}/index.php/login/v2`,
-      method: 'POST',
-      headers: { 'User-Agent': 'Obsidian Nextcloud Sync' },
-      throw: false,
-    });
-    if (res.status === 404 || res.status === 405) {
-      throw new LoginFlowError('unsupported');
+    let lastErr: unknown = null;
+    for (let attempt = 0; attempt < this.START_ATTEMPTS; attempt++) {
+      try {
+        const res = await withTimeout(requestUrl({
+          url: `${base}/index.php/login/v2`,
+          method: 'POST',
+          headers: { 'User-Agent': 'Obsidian Nextcloud Sync' },
+          throw: false,
+        }), this.REQUEST_TIMEOUT_MS);
+        if (res.status === 404 || res.status === 405) {
+          throw new LoginFlowError('unsupported');
+        }
+        if (res.status < 200 || res.status >= 300) {
+          throw new LoginFlowError(`HTTP ${res.status}`);
+        }
+        const init = this.parseInit(res.json);
+        if (!init) throw new LoginFlowError('invalid start response');
+        return init;
+      } catch (err) {
+        // HTTP-level outcomes (unsupported / status codes / bad payload) are definitive — retry
+        // only the transport class, where no HTTP response exists to act on.
+        if (err instanceof LoginFlowError) throw err;
+        lastErr = err;
+        if (attempt < this.START_ATTEMPTS - 1) await sleep(1000 * (attempt + 1));
+      }
     }
-    if (res.status < 200 || res.status >= 300) {
-      throw new LoginFlowError(`HTTP ${res.status}`);
-    }
-    const init = this.parseInit(res.json);
-    if (!init) throw new LoginFlowError('invalid start response');
-    return init;
+    throw lastErr;
   }
 
   /**
    * Checks for approval completion exactly once. Returns `pending` before approval, `success` once done.
+   * Network failures throw — the poll loop decides whether they are transient.
    * @returns Polling result (discriminated union)
    */
   static async pollOnce(init: LoginFlowInit): Promise<LoginFlowResult> {
-    const res = await requestUrl({
+    const res = await withTimeout(requestUrl({
       url: init.pollEndpoint,
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
       body: `token=${encodeURIComponent(init.pollToken)}`,
       throw: false,
-    });
+    }), this.REQUEST_TIMEOUT_MS);
     if (res.status === 404) return { status: 'pending' };
     if (res.status < 200 || res.status >= 300) return { status: 'pending' };
     const ok = this.parseSuccess(res.json);
@@ -98,6 +140,11 @@ export class LoginFlowV2 {
    * on the server is never collected. Racing the resume signal both unsticks the loop and makes the
    * first poll after the user returns immediate, which is exactly the moment approval has just landed.
    *
+   * A poll request that gets no HTTP response at all (socket reset, timeout — the burst that mobile
+   * containers produce when the app resumes with a stale socket pool) is treated as
+   * "pending": the loop backs off, keeps polling, and only gives up after
+   * {@link MAX_CONSECUTIVE_POLL_FAILURES} consecutive transport failures.
+   *
    * @param sleep Wait function injectable for testing (defaults to a setTimeout-based one)
    * @param deps Clock and resume-signal seams, injectable for testing
    */
@@ -113,9 +160,25 @@ export class LoginFlowV2 {
     let wake: (() => void) | null = null;
     const unsubscribe = onResume(() => wake?.());
     try {
+      let consecutiveFailures = 0;
       while (now() < deadline) {
-        const result = await this.pollOnce(init);
+        let result: LoginFlowResult;
+        try {
+          result = await this.pollOnce(init);
+          consecutiveFailures = 0;
+        } catch (err) {
+          consecutiveFailures++;
+          if (consecutiveFailures > this.MAX_CONSECUTIVE_POLL_FAILURES) {
+            return { status: 'error', reason: err instanceof Error ? err.message : String(err) };
+          }
+          result = { status: 'pending' };
+        }
         if (result.status === 'success') return result;
+        // Back off linearly while the connection keeps failing (capped), so a flapping socket pool
+        // gets time to re-establish instead of being hammered every 2 s.
+        const waitMs = consecutiveFailures > 0
+          ? Math.min(this.POLL_INTERVAL_MS * consecutiveFailures, this.MAX_POLL_FAILURE_BACKOFF_MS)
+          : this.POLL_INTERVAL_MS;
         await new Promise<void>((resolve) => {
           let settled = false;
           const finish = (): void => {
@@ -127,7 +190,7 @@ export class LoginFlowV2 {
           wake = finish;
           // The timer may never fire (suspended webview); `finish` is idempotent, so whichever of the
           // two arrives first wins and the loser is a no-op when it eventually runs.
-          void sleep(this.POLL_INTERVAL_MS).then(finish);
+          void sleep(waitMs).then(finish);
         });
       }
       return { status: 'timeout' };
@@ -165,4 +228,37 @@ export class LoginFlowV2 {
     }
     return { server, loginName, appPassword };
   }
+}
+
+/**
+ * Races a request against a hard timeout. Window timers (same idiom as network/requestWithTimeout.ts)
+ * — the a-layer test file aliases the node globals to `window` since jest's node env lacks one.
+ */
+function withTimeout<T>(p: Promise<T>, timeoutMs: number): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    let settled = false;
+    const timer = window.setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      reject(new Error(`Login request timed out after ${Math.round(timeoutMs / 1000)}s`));
+    }, timeoutMs);
+    p.then(
+      (v) => { if (!settled) { settled = true; window.clearTimeout(timer); resolve(v); } },
+      (e) => {
+        if (settled) return;
+        settled = true;
+        window.clearTimeout(timer);
+        reject(e instanceof Error ? e : new Error(String(e)));
+      },
+    );
+  });
+}
+
+/**
+ * Converts a login-flow failure into a short, actionable message. Delegates to the shared network
+ * translator (src/network/errorMessages.ts) so sync failures and login failures speak the same
+ * language about the same native exception strings.
+ */
+export function friendlyLoginError(err: unknown): string {
+  return friendlyNetworkError(err);
 }

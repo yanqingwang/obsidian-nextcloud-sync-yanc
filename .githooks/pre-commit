@@ -58,13 +58,24 @@ echo "pre-commit: no secrets detected."
 # <<< secret-scan (secretlint) <<<
 
 # >>> public-author-gate >>>
-# Block commits authored under anything but the public identity (bypass: git commit --no-verify)
+# Block commits authored under an identity that is neither the upstream maintainer's nor this
+# fork's own. The point of the gate is that a commit carries a real, attributable identity — not
+# one specific person — so a fork can add its owner without impersonating upstream.
+#
+# Fork note: the second address is this repository's owner. Upstream's original single-address
+# check made the hook unusable here, and the two ways around it (--no-verify, or committing under
+# the maintainer's address) each cost something real: the first also disables the secret scan
+# above, the second writes a false author into permanent history.
+# Bypass in an emergency with: git commit --no-verify
 (
   _pa_email="$(git var GIT_AUTHOR_IDENT 2>/dev/null | grep -oP '<\K[^>]+')"
-  if [ "$_pa_email" != "siosig@gmail.com" ]; then
-    echo "pre-commit: commit author must be Daisuke ITO <siosig@gmail.com> (got: ${_pa_email:-unknown}) (bypass: git commit --no-verify)." >&2
-    exit 1
-  fi
+  case "$_pa_email" in
+    siosig@gmail.com|yanqingwang@users.noreply.github.com) ;;
+    *)
+      echo "pre-commit: commit author must be the upstream maintainer <siosig@gmail.com> or this fork's owner <yanqingwang@users.noreply.github.com> (got: ${_pa_email:-unknown}) (bypass: git commit --no-verify)." >&2
+      exit 1
+      ;;
+  esac
 ) || exit 1
 # <<< public-author-gate <<<
 

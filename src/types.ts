@@ -512,7 +512,16 @@ export type LoginFlowResult =
   | { status: 'success'; server: string; loginName: string; appPassword: string }
   | { status: 'pending' }
   | { status: 'timeout' }
-  | { status: 'unsupported' };
+  | { status: 'unsupported' }
+  /**
+   * Polling abandoned early: too many consecutive transport failures (socket resets, timeouts).
+   *
+   * Distinct from `timeout`, which means the flow ran its full 20-minute budget without approval.
+   * On mobile the two are very different experiences — a socket storm finishes in seconds — and
+   * collapsing both into `timeout` is what made a mobile login failure look like "it just never
+   * approved". `reason` carries the underlying error so the caller can show a network diagnosis.
+   */
+  | { status: 'error'; reason: string };
 
 // ── US2: File Versions ──────────────────────────────────────────────────────
 

@@ -87,9 +87,12 @@ describe('LoginFlowV2', () => {
         { now: fakeClock(1000), onResume },
       );
 
-      // Let the first poll settle, then simulate the user coming back from the browser.
-      await Promise.resolve();
-      await Promise.resolve();
+      // Let the first poll settle: a macrotask boundary guarantees every pending microtask has run,
+      // so the loop is parked in its wait and `wake` is registered before the resume signal fires.
+      // A fixed number of `await Promise.resolve()` is not enough — pollOnce races the request
+      // against a timeout, which adds microtask hops of its own, and firing the resume signal while
+      // the loop is still awaiting the first poll is a no-op that hangs the test until jest's limit.
+      await new Promise((r) => setTimeout(r, 0));
       expect(resume).not.toBeNull();
       (resume as unknown as () => void)();
 

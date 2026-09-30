@@ -1,9 +1,11 @@
 import { App, Platform, PluginSettingTab, Setting, Notice, SecretComponent, TextComponent, SliderComponent } from 'obsidian';
 import type { SettingDefinitionItem } from 'obsidian';
 import type ObsidianNextcloudsync from '../main';
-import { LoginFlowError, DavSyncSettings } from '../types';
+import { LoginFlowError, DavSyncSettings, NetworkError } from '../types';
 import { parseMergeableExtensions, formatMergeableExtensions } from '../util/mergeableExtensions';
 import { LoginFlowV2 } from '../auth/LoginFlowV2';
+import { friendlyNetworkError } from '../network/errorMessages';
+import { checkReachability } from '../network/ConnectionTester';
 import { normalizeExcludedFolder } from '../util/excludedFolders';
 import { normalizeNumericInput } from '../util/numericInput';
 import {
@@ -269,6 +271,17 @@ export class NextcloudSyncSettingTab extends PluginSettingTab implements Setting
         this.update();
       } else if (result.status === 'timeout') {
         new Notice('⏱️ login timed out. Please try again.', 6000);
+      } else if (result.status === 'error') {
+        // Sustained transport failures while polling (mobile socket storms). The approval itself
+        // usually landed on the server; only the polling connection died, so the message points at
+        // the manual app-password fallback instead of claiming the server rejected the login.
+        void this.plugin.logger.log(`login: poll transport error — ${result.reason}`, 'error');
+        new Notice(
+          `❌ Lost connection while waiting for approval (${friendlyNetworkError(result.reason)}). ` +
+          'Your approval may already have registered — sign in with an app password: enter your username, ' +
+          'paste the password (Settings → Security → Devices & Sessions on the server), then press "Test connection".',
+          12000,
+        );
       } else {
         new Notice('This server does not support login flow. Please enter an app password manually.', 8000);
       }
@@ -277,7 +290,59 @@ export class NextcloudSyncSettingTab extends PluginSettingTab implements Setting
       if (err instanceof LoginFlowError && err.reason === 'unsupported') {
         new Notice('This server does not support login flow. Please enter an app password manually.', 8000);
       } else {
-        new Notice(`❌ Login failed: ${(err as Error).message}`, 6000);
+        new Notice(`❌ Login failed: ${friendlyNetworkError(err)}`, 12000);
+      }
+    }
+  }
+
+  /**
+   * Two-stage connection diagnostic behind the "Test connection" row.
+   *
+   * Stage 1 is deliberately unauthenticated (`/status.php`): one HTTP response of any kind proves DNS,
+   * TCP, TLS and HTTP all work, which is the only way to tell "the network path is interfering"
+   * (SSLHandshakeException / socket reset — no status code ever arrives) apart from "the server is
+   * there and rejected you" (stage 2 answers 401). Reporting those as one failure is what made the
+   * mobile login problem undiagnosable: the user could not tell a proxy from a wrong password.
+   *
+   * Stage 2 then builds a real client, which authenticates and reports the negotiated WebDAV target.
+   */
+  async testConnection(): Promise<void> {
+    const s = this.plugin.settings;
+    const password = loadAppPassword(this.app, s.passwordSecretId);
+    if (s.serverUrl.trim().length === 0) {
+      new Notice('Fill in the server URL first.', 6000);
+      return;
+    }
+    if (!password) {
+      new Notice('No app password is stored yet — paste one above first.', 6000);
+      return;
+    }
+    new Notice('Testing connection…', 4000);
+
+    // Stage 1 — is the network path even usable?
+    const reach = await checkReachability(s.serverUrl);
+    void this.plugin.logger.log(`test-connection: reachability — ${reach.ok ? 'ok' : 'failed'} (${reach.detail})`);
+    if (!reach.ok) {
+      new Notice(`❌ Cannot reach the server: ${reach.detail}`, 12000);
+      return;
+    }
+
+    // Stage 2 — the path works, so now the credentials are the only thing left that can be wrong.
+    try {
+      const { WebDAVFactory } = await import('../network/WebDAVFactory');
+      const factory = new WebDAVFactory(this.app, s, password, (m) => void this.plugin.logger.log(`test-connection: ${m}`));
+      const { features } = await factory.createClient();
+      const where = features.isNextcloud && features.version ? ` (Nextcloud ${features.version})` : '';
+      void this.plugin.logger.log(`test-connection: auth ok${where}`);
+      new Notice(`✅ Connection OK — ${reach.detail}; credentials accepted${where}.`, 8000);
+    } catch (err) {
+      void this.plugin.logger.log(`test-connection: ERROR — ${(err as Error).message}`, 'error');
+      const status = err instanceof NetworkError ? err.status : null;
+      if (status === 401 || status === 403) {
+        // Nextcloud deletes app passwords unused for 365 days, so an expired one is the common case.
+        new Notice('❌ The server rejected the app password (401). It may be wrong or expired — generate a new one under Settings → Security → Devices & Sessions on the server.', 12000);
+      } else {
+        new Notice(`❌ Connection failed: ${friendlyNetworkError(err)}`, 12000);
       }
     }
   }

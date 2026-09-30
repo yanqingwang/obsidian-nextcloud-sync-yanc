@@ -57,6 +57,12 @@ export interface SettingDefinitionsHost {
   resetVaultIndex(): unknown;
   openSyncStatus(): unknown;
   startLoginFlow(): unknown;
+  /**
+   * Two-stage credential diagnostic: an unauthenticated reachability probe, then the stored
+   * credentials. Kept on the host (not inline in the definition) so the stage logic and its Notice
+   * wording live in one place.
+   */
+  testConnection(): unknown;
   addExcludedFolder(path: string): unknown;
   removeExcludedFolder(path: string): unknown;
 
@@ -259,6 +265,13 @@ function nextcloudGroup(host: SettingDefinitionsHost): SettingDefinitionGroup {
       aliases: ['login', 'sign in', 'oauth', 'browser', 'authorize'],
       disabled: () => host.settings.serverUrl.trim().length === 0,
       action: () => { void host.startLoginFlow(); },
+    },
+    {
+      name: 'Test connection',
+      desc: 'Checks the network path to the server first (unauthenticated /status.php), then the stored credentials. Two stages so the message tells you WHICH one failed: a TLS or socket error means the network path is interfering, while an authentication error means the app password is wrong or expired. Use this when browser sign-in is unavailable.',
+      aliases: ['test', 'verify', 'check', 'diagnose', 'connection', 'reachable'],
+      disabled: () => host.settings.serverUrl.trim().length === 0,
+      action: () => { void host.testConnection(); },
     },
     notice(host, 'Manual sign-in', SIGN_IN_MANUAL_DIVIDER, { cls: 'ncs-signin-divider' }),
     {
