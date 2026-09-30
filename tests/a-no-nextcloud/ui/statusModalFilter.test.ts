@@ -33,6 +33,7 @@ function makeReport(): SyncStatusReport {
       hist('c.md', 'conflicted'),
       hist('e.md', 'error'),
     ],
+    sessionHistory: [],
   };
 }
 

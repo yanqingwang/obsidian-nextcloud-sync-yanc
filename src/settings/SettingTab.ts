@@ -6,6 +6,7 @@ import { parseMergeableExtensions, formatMergeableExtensions } from '../util/mer
 import { LoginFlowV2 } from '../auth/LoginFlowV2';
 import { friendlyNetworkError } from '../network/errorMessages';
 import { checkReachability } from '../network/ConnectionTester';
+import { verifyAppPassword, AppPasswordRejectedError } from '../auth/verifyCredentials';
 import { normalizeExcludedFolder } from '../util/excludedFolders';
 import { normalizeNumericInput } from '../util/numericInput';
 import {
@@ -260,12 +261,36 @@ export class NextcloudSyncSettingTab extends PluginSettingTab implements Setting
       const result = await LoginFlowV2.poll(init);
       void this.plugin.logger.log(`login: poll finished — status=${result.status}`);
       if (result.status === 'success') {
-        this.plugin.settings.username = result.loginName;
+        // Verify the freshly issued app password before storing it. Nextcloud's Login Flow docs
+        // ("Login name vs. email login") are explicit that the returned loginName may be an email
+        // address, and building /remote.php/dav/files/<email>/ from that yields a path the server
+        // never matches — the failure then surfaces much later as an empty or 404 sync rather
+        // than as a sign-in problem. Checking now also means a credential the server refuses is
+        // never written to Secret Storage.
+        let uid = result.loginName;
+        try {
+          const verified = await verifyAppPassword(serverBaseUrl, result.loginName, result.appPassword);
+          uid = verified.uid;
+          void this.plugin.logger.log(`login: credential verified — uid=${verified.uid}`);
+        } catch (err) {
+          if (err instanceof AppPasswordRejectedError) {
+            // Definitive: the server answered and refused. Storing this would leave the user
+            // signed-in-but-broken, so report and stop.
+            void this.plugin.logger.log(`login: credential REJECTED (${err.status})`, 'error');
+            new Notice('❌ The server rejected the app password that was just issued. Nothing was saved — please try signing in again.', 12000);
+            return;
+          }
+          // A transport failure is NOT a verdict on the credential. Keep it (the sync will prove it
+          // either way) but say so, rather than silently downgrading to a guessed uid.
+          void this.plugin.logger.log(`login: credential check skipped — ${(err as Error).message}`, 'error');
+          new Notice(`⚠️ Signed in, but the credential could not be verified (${friendlyNetworkError(err)}). If the first sync finds nothing, re-enter your username.`, 12000);
+        }
+        this.plugin.settings.username = uid;
         saveAppPassword(this.app, DEFAULT_PASSWORD_SECRET_ID, result.appPassword);
         this.plugin.settings.passwordSecretId = DEFAULT_PASSWORD_SECRET_ID;
         await this.plugin.saveSettings();
         await this.plugin.initSyncEngine();
-        new Notice(`✅ Logged in as ${result.loginName}`, 6000);
+        new Notice(`✅ Logged in as ${uid}`, 6000);
         // Sign-in state changes which rows are visible, so the definitions must be rebuilt —
         // refreshDomState() only re-evaluates predicates against the rows already rendered.
         this.update();
@@ -340,7 +365,7 @@ export class NextcloudSyncSettingTab extends PluginSettingTab implements Setting
       const status = err instanceof NetworkError ? err.status : null;
       if (status === 401 || status === 403) {
         // Nextcloud deletes app passwords unused for 365 days, so an expired one is the common case.
-        new Notice('❌ The server rejected the app password (401). It may be wrong or expired — generate a new one under Settings → Security → Devices & Sessions on the server.', 12000);
+        new Notice('❌ The server rejected the app password (401). It may be wrong or expired — generate a new one under the server\'s settings → security → devices & sessions.', 12000);
       } else {
         new Notice(`❌ Connection failed: ${friendlyNetworkError(err)}`, 12000);
       }

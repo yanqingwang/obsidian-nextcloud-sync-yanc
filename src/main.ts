@@ -624,6 +624,11 @@ export default class ObsidianNextcloudsync extends Plugin {
     this.cleanSideStore = cleanSideStore;
     const historyStore = new SyncHistoryStore(this.app.vault.adapter, pluginDir);
     await historyStore.load();
+    // Roll-up of the last few sessions (counts + errors), so the status dialog can answer "did my
+    // last sync work, and what did it complain about" without the user reading the log file.
+    const { SyncSessionHistoryStore } = await import('./data/SyncSessionHistoryStore');
+    const sessionHistoryStore = new SyncSessionHistoryStore(this.app.vault.adapter, pluginDir);
+    await sessionHistoryStore.load();
 
     // Mobile has no visible status bar (addStatusBarItem is unavailable there), so feedback is
     // surfaced as a single reused Notice toast via NoticeStatusBar. Both implement IStatusBar, so
@@ -648,6 +653,7 @@ export default class ObsidianNextcloudsync extends Plugin {
       cleanSideStore,
       statusBar,
       historyStore,
+      sessionHistoryStore,
       webdavFactory,
       pluginDir,
       configDir: this.app.vault.configDir,

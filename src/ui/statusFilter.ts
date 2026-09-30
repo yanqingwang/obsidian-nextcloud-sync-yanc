@@ -10,6 +10,14 @@ export interface SyncStatusReport {
   retryFiles: string[];
   /** Per-file sync outcomes within the last 24h, newest first. */
   history: SyncHistoryEntry[];
+  /**
+   * Roll-up of recent whole sessions (counts + errors), newest first.
+   *
+   * Not a filterable status: `filterReport` passes it through untouched, because it describes
+   * finished sessions rather than the current file-level state, and a past session must stay
+   * visible even when none of its paths are currently selected.
+   */
+  sessionHistory: SyncSessionSummary[];
 }
 
 /** Every status the dialog can show — one filter checkbox is rendered per entry (in this order). */

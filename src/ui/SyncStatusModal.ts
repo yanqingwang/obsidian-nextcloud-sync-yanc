@@ -1,5 +1,5 @@
-import { App, Modal, Setting } from 'obsidian';
-import { SyncErrorDetail, SyncFileOp, SyncHistoryEntry } from '../types';
+import { App, Modal, Setting, Notice } from 'obsidian';
+import { SyncErrorDetail, SyncFileOp, SyncHistoryEntry, SyncSessionSummary } from '../types';
 import {
   DIR_BREAKER_REPORT_FILENAME,
   FILE_BREAKER_REPORT_FILENAME,
@@ -185,6 +185,11 @@ export class SyncStatusModal extends Modal {
 
     this.addHistorySection(filtered.history);
 
+    // Deliberately NOT status-filtered: this is the "what happened on my last few syncs" roll-up,
+    // and hiding a past session because its files are not currently in a filtered state would make
+    // a recurring intermittent failure invisible — exactly the case a user needs to see.
+    this.addSessionHistorySection(report.sessionHistory);
+
     this.addConflictSection(filtered.conflictedFiles);
     this.addFileSection('✗ Queued for retry', filtered.retryFiles,
       'Files that failed and will be retried on the next sync.');
@@ -230,6 +235,52 @@ export class SyncStatusModal extends Modal {
    * Per-file sync activity in the last 24 hours (successes included), newest first. The list is
    * scrollable (capped height with a vertical scrollbar) so a busy sync session stays compact.
    */
+  private addSessionHistorySection(sessions: SyncSessionSummary[]): void {
+    const { contentEl } = this;
+    new Setting(contentEl).setName(`📋 Sync history (last ${sessions.length})`).setHeading();
+
+    if (sessions.length === 0) {
+      contentEl.createEl('p', {
+        text: 'No sync history available.',
+        cls: 'setting-item-description',
+      });
+      return;
+    }
+
+    const now = Date.now();
+    const list = contentEl.createDiv({ cls: 'ncs-status-list' });
+
+    for (const s of sessions) {
+      const when = formatClock24(s.startedAt, now);
+      const duration = s.completedAt
+        ? `${Math.round((s.completedAt - s.startedAt) / 1000)}s`
+        : 'in progress';
+
+      const row = list.createDiv({ cls: 'ncs-status-row' });
+      const summaryText = row.createDiv({ cls: 'ncs-history-line' });
+      summaryText.createSpan({
+        text: `⏱ ${when} (${duration})  ·  ↑ ${s.uploadedCount}  ↓ ${s.downloadedCount}  `
+          + `⟷ ${s.mergedCount}  ⚠️ ${s.conflictedCount}  ✗ ${s.errorCount}`,
+      });
+
+      // Only offer the copy action when there is something to copy: a disabled button on every
+      // clean row is noise, and `errorCount > 0` with an empty `errors` array means the count came
+      // from somewhere this dialog cannot show, so there is no text to hand the user.
+      if (s.errorCount > 0 && s.errors.length > 0) {
+        const copyBtn = row.createEl('button', { cls: 'mod-warning', text: '📋 Copy errors' });
+        copyBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const errorText = s.errors
+            .map((err: SyncErrorDetail) => `${err.path || '(session-level)'}\n  ${err.message}`)
+            .join('\n\n');
+          void navigator.clipboard.writeText(`Sync errors at ${when}:\n${errorText}`).then(() => {
+            new Notice('Errors copied to clipboard');
+          });
+        });
+      }
+    }
+  }
+
   private addHistorySection(history: SyncHistoryEntry[]): void {
     const { contentEl } = this;
     new Setting(contentEl).setName(`🕒 Recent activity · last 24h (${history.length})`).setHeading();

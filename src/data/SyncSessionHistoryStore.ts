@@ -73,9 +73,23 @@ export class SyncSessionHistoryStore {
   private async doSave(): Promise<void> {
     const json = JSON.stringify(this.sessions);
     await this.adapter.write(this.tmpPath, json);
-    if (await this.adapter.exists(this.filePath)) {
-      await this.adapter.remove(this.filePath);
+    let targetRemoved = false;
+    try {
+      if (await this.adapter.exists(this.filePath)) {
+        await this.adapter.remove(this.filePath);
+        targetRemoved = true;
+      }
+      await this.adapter.rename(this.tmpPath, this.filePath);
+    } catch (err) {
+      // Same guarantee as LocalAdapter.atomicWrite (G4-1): once the target has been removed, the tmp
+      // file is the only surviving copy of the new history, so it must be left in place for load() to
+      // recover from. Deleting it here would turn a failed rename into total loss of the store —
+      // and this file holds the only record of which syncs failed, which is the one thing a user
+      // debugging a flaky connection needs.
+      if (!targetRemoved && await this.adapter.exists(this.tmpPath)) {
+        await this.adapter.remove(this.tmpPath);
+      }
+      throw err;
     }
-    await this.adapter.rename(this.tmpPath, this.filePath);
   }
 }

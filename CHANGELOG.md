@@ -11,6 +11,52 @@ and folded into the next stable entry.
 
 > A Japanese translation is available at [`CHANGELOG.ja.md`](CHANGELOG.ja.md).
 
+## [1.1.0] - 2026-09-30
+
+This release **rebases the YANC fork onto upstream 1.0.8** and re-applies the fork's own work on
+top. The fork had diverged from upstream at 0.7.43 and then released 1.0.0 through 1.0.9
+independently, so its version numbers collided with upstream's own 1.0.0-1.0.8 while missing 72
+upstream commits. Any version number at or below 1.0.8 in this fork's history is a **different
+codebase** from the upstream release of the same number. Starting at 1.1.0 the numbering is
+unambiguous again.
+
+### Fixed
+- **Signing in on Android could fail outright with "connection to the server was dropped (socket
+  error)".** Upstream's Login Flow v2 poll treats any transport error as fatal, so a single dropped
+  socket — routine when Android returns from the background with a stale socket pool — aborted the
+  sign-in. The fork's resilience is restored: up to 3 start attempts, up to 15 tolerated consecutive
+  poll failures with linear backoff, and a 30 s per-request timeout so a wedged socket fails
+  instead of hanging.
+- **A socket-storm abort reported itself as a sign-in timeout.** The poll now reports a distinct
+  error state carrying the underlying cause, instead of masquerading as the 20-minute "never
+  approved" timeout.
+- **Login failure notices repeated the same instruction.** The app-password hint was printed once
+  by the network-error translator and again by the login call site. It is now printed once, by the
+  login call site only. Sync failures also no longer suggest re-authenticating, which cannot help a
+  mid-sync network drop.
+
+### Added
+- **"Test connection"** — a two-stage diagnostic: an unauthenticated `/status.php` reachability
+  probe, then the stored credentials. Upstream has no such affordance, which on mobile left no way
+  to tell a broken network path (a TLS-intercepting proxy) from a wrong or expired app password.
+  The 401/403 message now mentions that Nextcloud deletes app passwords unused for 365 days.
+- **Login verifies the issued app password and resolves the real uid.** Nextcloud's Login Flow can
+  return an email address where WebDAV paths need the account uid; building
+  `/remote.php/dav/files/<email>/` yields a path the server never matches, and the failure used to
+  surface much later as an empty sync. A credential the server rejects is no longer stored.
+- **Sync session history with "Copy errors"** in the Sync Status dialog — the last 5 sessions with
+  their counts, and a one-tap copy of a failed session's errors, which is the fastest way to hand a
+  real failure to a bug report.
+
+### Changed
+- Adopted upstream's mobile UI entry points, foreground-resume sync, and 423 lock-owner reporting.
+  Upstream's 423 handling is strictly more complete than the fork's blind delete-retry, so it is
+  used as-is; the fork's own directory-delete retry was dropped rather than layered on top, since
+  upstream's version also names the lock owner instead of retrying a lock that will never clear.
+- Session-history saves are crash-safe: a failure between removing the old file and renaming the new
+  one now leaves the temporary copy in place for recovery, matching the guarantee already made for
+  vault writes.
+
 ## [1.0.8] - 2026-09-23
 
 ### Fixed

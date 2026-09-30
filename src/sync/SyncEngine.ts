@@ -42,6 +42,7 @@ import { DirectoryReconciler } from './directory/DirectoryReconciler';
 import { WatchOperations } from './watch/WatchOperations';
 import { MirrorService } from './mirror/MirrorService';
 import { SyncHistoryStore } from '../data/SyncHistoryStore';
+import { SyncSessionHistoryStore } from '../data/SyncSessionHistoryStore';
 import { IStatusBar } from '../ui/StatusBarItem';
 import { WebDAVFactory } from '../network/WebDAVFactory';
 import { IWebDAVClient } from '../network/IWebDAVClient';
@@ -85,6 +86,8 @@ interface SyncEngineOptions {
   statusBar: IStatusBar;
   /** Persisted per-file sync-history log for the status dialog. Optional (absent in some tests). */
   historyStore?: SyncHistoryStore;
+  /** Persisted session summary history (last 5 syncs). Optional (absent in some tests). */
+  sessionHistoryStore?: SyncSessionHistoryStore;
   webdavFactory: WebDAVFactory;
   pluginDir: string;
   /** Obsidian's configuration folder (Vault#configDir), e.g. `.obsidian`. User-configurable. */
@@ -458,11 +461,15 @@ export class SyncEngine {
       summary.completedAt = Date.now();
       this.lastSummary = summary;
       this.opts.stateDB.setLastSyncTime(Date.now());
+      // Record this session so the status dialog can show what the last few syncs did. Called
+      // before the save below so the entry and its persistence land in the same session.
+      this.opts.sessionHistoryStore?.record(summary);
       // Best-effort persistence: a save failure must not propagate out of the finally (which would
       // mask the original error and, before the flag move above, strand the running flag).
       try {
         await this.opts.stateDB.save();
         await this.opts.historyStore?.save(); // persist this session's per-file outcomes (pruned to 24h)
+        await this.opts.sessionHistoryStore?.save(); // persist session history (last 5)
       } catch (persistErr) {
         console.error('[SyncEngine] Post-sync persistence failed:', persistErr);
         void this.opts.logger?.log(`sync: post-sync save failed — ${(persistErr as Error).message}`, 'error');
@@ -767,6 +774,7 @@ export class SyncEngine {
     conflictedFiles: string[];
     retryFiles: string[];
     history: SyncHistoryEntry[];
+    sessionHistory: SyncSessionSummary[];
   } {
     const conflictedFiles = this.opts.stateDB.getAllFiles()
       .filter(f => f.isConflicted)
@@ -776,6 +784,7 @@ export class SyncEngine {
       conflictedFiles,
       retryFiles: [...this.retryQueue],
       history: this.opts.historyStore?.recent() ?? [],
+      sessionHistory: this.opts.sessionHistoryStore?.getRecent() ?? [],
     };
   }
 

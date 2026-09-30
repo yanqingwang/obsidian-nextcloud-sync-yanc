@@ -320,6 +320,7 @@ describe('forceResolution — bulk', () => {
       conflictedFiles: ['a.md', 'b.md', 'c.md', 'd.md'],
       retryFiles: [],
       history: [],
+      sessionHistory: [],
     };
     const checked = new Set<SyncFileOp>(ALL_FILTER_OPS); // all statuses visible, including 'conflicted'
     const filtered = filterReport(report, checked);
