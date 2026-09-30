@@ -11,6 +11,21 @@
 
 > 英語版（原文）は [`CHANGELOG.md`](CHANGELOG.md) を参照してください。
 
+## [1.1.2] - 2026-09-30
+
+### 修正
+- **`manifest.json` の作者名をフォークのものに戻しました。** 1.1.0 のリベースで誤って上流の
+  `Daisuke ITO` に戻っていました。フォークは（1.0.x と同様に）`yanqingwang` として公開されます。
+
+### 変更
+- **`package.json` から `js-yaml` を完全に削除しました。** Obsidian のレビューボットは
+  devDependencies であってもフラグを立てます。プロダクションコードは未使用（フロントマターは
+  Obsidian の `parseYaml`/`stringifyYaml` を経由）のため、Jest と e2e のテストダブルを `yaml`
+  パッケージ（`parse`/`stringify`、js-yaml の引用スタイルに合わせる `singleQuote`）に置き換え、
+  `@types/js-yaml` を削除しました。
+- **README のタイトルをマニフェスト名（`Nextcloud sync YANC`）に一致させました。**
+  コミュニティプラグインのガイドライン要件です。ドキュメントのみの変更です。
+
 ## [1.1.1] - 2026-09-30
 
 ### 変更

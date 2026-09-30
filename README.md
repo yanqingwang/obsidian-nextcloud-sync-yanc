@@ -48,7 +48,13 @@ This plugin is still young and some behaviour can be rough around the edges. **P
 
 ---
 
-## What's new in this release (1.1.1)
+## What's new in this release (1.1.2)
+
+- **Fixed: the manifest author was wrong** — the 1.1.0 rebase restored upstream's author (`Daisuke ITO`) by mistake; the fork's own author (`yanqingwang`) is back.
+- **Removed `js-yaml` from the package entirely** — Obsidian's review bot flags it even as a dev-only dependency. It was already unused in production code (frontmatter goes through Obsidian's `parseYaml`/`stringifyYaml`); the test doubles now use the `yaml` package.
+- **The README title now matches the manifest name** (*Nextcloud sync YANC*), as required by the community-plugin guidelines. No behaviour change.
+
+## What's new in 1.1.1
 
 - **The plugin id and name now identify the fork** (`nextcloud-sync-yanc` / *Nextcloud sync YANC*), so this fork can be listed in the community directory and installed side by side with upstream. If you installed it before 1.1.1 under the old `nextcloud-sync` id, uninstall that copy first. Your stored app password is unaffected.
 - **1.1.0 rebased the YANC fork onto upstream 1.0.8.** The fork had diverged at 0.7.43 and then released 1.0.0 through 1.0.9 on its own, so its version numbers collided with upstream's releases for the same numbers while missing 72 upstream commits. Any version at or below 1.0.8 in this fork's history is a **different codebase** from the upstream release of that number; 1.1.0 makes the numbering unambiguous again. You now also get upstream's mobile UI entry points, foreground-resume sync, and lock-owner reporting on `HTTP 423`.

@@ -11,6 +11,20 @@ and folded into the next stable entry.
 
 > A Japanese translation is available at [`CHANGELOG.ja.md`](CHANGELOG.ja.md).
 
+## [1.1.2] - 2026-09-30
+
+### Fixed
+- **Restored the fork's author in `manifest.json`.** The 1.1.0 rebase accidentally reverted it to
+  upstream's `Daisuke ITO`; the fork publishes as `yanqingwang` (as 1.0.x already did).
+
+### Changed
+- **Removed `js-yaml` from `package.json` entirely.** Obsidian's review bot flags it even as a
+  devDependency, although production code never imported it (frontmatter goes through Obsidian's
+  `parseYaml`/`stringifyYaml`). The Jest and e2e test doubles now use the `yaml` package
+  (`parse`/`stringify`, `singleQuote` matching js-yaml's quoting style); `@types/js-yaml` removed.
+- **README title now matches the manifest name** (`Nextcloud sync YANC`), per the community-plugin
+  guidelines. Docs-only change.
+
 ## [1.1.1] - 2026-09-30
 
 ### Changed
