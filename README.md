@@ -31,9 +31,14 @@ This plugin is still young and some behaviour can be rough around the edges. **P
 
 ---
 
-## What's new in this release (1.0.8)
+## What's new in this release (1.1.0)
 
-- **Fixed: `HTTP 423` after a force-resolve or a normal sync gave no indication of why (1.0.8)** — when a file was locked on the Nextcloud server side (most commonly a lock left behind by the Nextcloud Text web editor), every failed PUT/DELETE just showed a bare `HTTP 423 (PUT)` with no explanation. The plugin now looks up the lock owner when the server reports one and includes it in the notice and the Sync Status result listing, so you know who or what is holding the file and can act accordingly (see the new FAQ entry for what to do next).
+- **This release rebases the YANC fork onto upstream 1.0.8.** The fork had diverged at 0.7.43 and then released 1.0.0 through 1.0.9 on its own, so its version numbers collided with upstream's releases for the same numbers while missing 72 upstream commits. Any version at or below 1.0.8 in this fork's history is a **different codebase** from the upstream release of that number; 1.1.0 makes the numbering unambiguous again. You now also get upstream's mobile UI entry points, foreground-resume sync, and lock-owner reporting on `HTTP 423`.
+- **Fixed: signing in on Android could fail with "connection to the server was dropped (socket error)"** — a single dropped socket, routine when Android returns to the foreground with a stale socket pool, aborted the sign-in. Sign-in now retries the start (3 attempts), tolerates up to 15 consecutive poll failures with backoff, and times out each request at 30 s instead of hanging. A socket-storm abort now reports its actual cause instead of looking like a sign-in timeout.
+- **Added: "Test connection"** — a two-stage check: an unauthenticated `/status.php` reachability probe, then the stored credentials. This separates a broken network path (a TLS-intercepting proxy, for example) from a wrong or expired app password, which a single failure message could never distinguish. The 401/403 result also notes that Nextcloud deletes app passwords unused for 365 days.
+- **Added: sync session history with "Copy errors"** — the last 5 sessions with their upload/download/conflict/error counts, and a one-tap copy of a failed session's errors, which is the quickest way to turn a real failure into a useful bug report.
+- **Fixed: sign-in now verifies the issued app password** and stores the account's real uid. Nextcloud's Login Flow can return an email address where WebDAV paths need the uid; the resulting path never matched, and the failure used to appear much later as an empty sync. A credential the server refuses is no longer stored.
+- **Fixed: login failure notices repeated the same instruction** — the "sign in with an app password" hint appeared twice in one message, and sync failures were told to re-authenticate, which cannot help a mid-sync network drop.
 
 For the full version history of every release, see the **[changelog](CHANGELOG.md)**.
 
