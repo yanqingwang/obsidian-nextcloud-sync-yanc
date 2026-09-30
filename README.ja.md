@@ -1,5 +1,21 @@
 # Nextcloud Sync for Obsidian
 
+> [!IMPORTANT]
+> **これは YANC フォークです。** Daisuke ITO による
+> [siosig/obsidian-nextcloudsync](https://github.com/siosig/obsidian-nextcloudsync) のフォークで、
+> 上流 1.0.8 を基点にリベースしたものです。上流が正式版であり、このフォークはモバイル／Android の
+> サインイン耐障害性、2 段階の接続テスト、同期セッション履歴を提供するために存在します。
+>
+> **このフォークの 1.1.0 より前のバージョン番号は、上流のバージョン番号と対応しません。** フォークは
+> 0.7.43 で分岐した後に独自に 1.0.0〜1.0.9 をリリースしたため、同番号の上流リリースとは別のコードベースです。
+> 1.1.0 が上流 1.0.8 の上に構築された最初のバージョンです。
+>
+> 本プラグインは上流の `id`（`nextcloud-sync`）をそのまま使用しているため、その id では公式コミュニティ
+> ストアに登録できません（その id は上流作者に登録済み）。[リリースページ](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/releases)
+> からインストールするか、[BRAT](https://github.com/TomBraun/obsidian-brat) でこのリポジトリを指定してください。
+>
+> **このフォーク固有の問題の報告先:** [yanqingwang/obsidian-nextcloud-sync-yanc](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/issues)
+
 **複数のデスクトップ・モバイル端末をまたいで作業しているすべての方へ朗報です。**
 
 あなたが払うコストは、初回インストール時に Vault インデックスの作成完了を待つことだけです。その時点以降は、次が得られます：
@@ -22,8 +38,8 @@ Obsidian Vault と Nextcloud を双方向同期します。汎用的な WebDAV �
 
 このプラグインはまだ若く、一部の動作は粗削りです。**つまずいた点をぜひ教えてください — 本当に助けになります。** 何かが壊れた、何かが足りない、あるいは使ってみての感想でも構いません。ぜひ聞かせてください（特に感想は私の励みになります！）：
 
-- 🐛 **バグを報告する** → [GitHub Issues](https://github.com/siosig/obsidian-nextcloudsync/issues)
-- 🙋‍♂️ **機能を要望する／感想を共有する** → [GitHub Discussions](https://github.com/siosig/obsidian-nextcloudsync/discussions)
+- 🐛 **バグを報告する** → [GitHub Issues](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/issues)
+- 🙋‍♂️ **機能を要望する／感想を共有する** → [GitHub Discussions](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/discussions)
 
 ---
 
@@ -119,10 +135,34 @@ Obsidian Vault と Nextcloud を双方向同期します。汎用的な WebDAV �
 
 ## インストール
 
-### コミュニティプラグインブラウザから（推奨）
+> **このフォークはコミュニティプラグインブラウザーには登録されていません。** 上流と同じプラグイン `id` を
+> 使用しており、その id は上流作者に登録済みのため、ブラウザーからは上流のリポジトリを示します。
+> このリポジトリのリリースから、または BRAT でインストールしてください。
+
+### このフォークのリリースから（推奨）
+
+1. [リリースページ](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/releases) を開き、
+   使用するバージョンのアセット（`main.js`、`manifest.json`、`styles.css`）をダウンロードします。
+2. `<YourVault>/.obsidian/plugins/nextcloud-sync/` にコピーします。フォルダ名は必ず `nextcloud-sync`
+   （manifest の `id`）にしてください。違うと Obsidian はプラグインを読み込みません。
+3. Obsidian をリロードし、**設定 → コミュニティプラグイン** で **Nextcloud Sync** を有効化します。
+
+**Android** では Obsidian に zip からのインストール機能がないため、ファイルマネージャーや同期アプリなどで
+3 つのファイルを vault の `.obsidian/plugins/nextcloud-sync/` にコピーし、Obsidian を再起動してください。
+
+### BRAT 経由（自動更新）
+
+[BRAT](https://github.com/TomBraun/obsidian-brat) をインストールし、このリポジトリ
+（`yanqingwang/obsidian-nextcloud-sync-yanc`）をベータプラグインとして追加します。最新のリリースから
+インストールされ、新しいリリースの公開時に通知されます。
+
+### コミュニティプラグインブラウザーから（上流版であり、このフォークではありません）
 1. Obsidian で **設定 → コミュニティプラグイン** を開きます。
 2. 制限モードを解除し、**閲覧** をクリックして **Nextcloud Sync** を検索します。
 3. **インストール** し、続けて **有効化** します。
+
+これは**上流** 1.0.8 をインストールするもので、このフォークの Android サインイン耐障害性や接続テストは
+含まれません。
 
 ### 手動インストール
 1. 最新の [GitHub Release](../../releases) から `main.js` と `manifest.json`（あれば `styles.css`）をダウンロードします。
@@ -281,7 +321,7 @@ Obsidian モバイルでは **Create new vault** を選びます。*Set up Obsid
 
 同期の正しさは広範な自動テストで担保しています：**数百件の高速な純ロジックテスト**（変更のたびに実行）に加え、**実 Nextcloud サーバーに対して 2 端末を実際に動かす E2E テスト群**（コンフリクト解決のオプション全組合せマトリクスやマルチデバイス収束を含む）を備えています。
 
-これらのテストは、同期不整合状態 — **データ消失、無限に続く再アップロード／再ダウンロード、リモートの変更がローカルに反映されない、ローカルの変更がリモートに同期されない** — を防ぐために用意しています。とはいえ、あらゆるケースを完全に網羅できるとは限らず、意図しない動作の可能性を完全に否定することはできません。**そのような現象を見つけたら、ぜひ気軽に [issue](https://github.com/siosig/obsidian-nextcloudsync/issues) に投げてください。できる限り迅速に対応します。**
+これらのテストは、同期不整合状態 — **データ消失、無限に続く再アップロード／再ダウンロード、リモートの変更がローカルに反映されない、ローカルの変更がリモートに同期されない** — を防ぐために用意しています。とはいえ、あらゆるケースを完全に網羅できるとは限らず、意図しない動作の可能性を完全に否定することはできません。**そのような現象を見つけたら、ぜひ気軽に [issue](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/issues) に投げてください。できる限り迅速に対応します。**
 
 ---
 
@@ -309,8 +349,8 @@ Obsidian モバイルでは **Create new vault** を選びます。*Set up Obsid
 
 バグ報告やアイデアは歓迎します。プラグインはまだ成熟途上で、これまで直ってきた不具合のほとんどは、誰かが見たものを言葉にして送ってくれたところから始まっています。
 
-- 🐛 **バグを報告する** → [GitHub Issues](https://github.com/siosig/obsidian-nextcloudsync/issues)
-- 🙋‍♂️ **機能を要望する／感想を共有する** → [GitHub Discussions](https://github.com/siosig/obsidian-nextcloudsync/discussions)
+- 🐛 **バグを報告する** → [GitHub Issues](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/issues)
+- 🙋‍♂️ **機能を要望する／感想を共有する** → [GitHub Discussions](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/discussions)
 
 **Pull Request を送るのではなく、Issue か Discussion を立ててください。** 事前の相談なく届いた PR は、参考情報としてありがたく読みますが、そのままマージされることはまずありません。このプラグインはメンテナが 1 人で、設計方針を意図的に絞っています。ユーザーに見せる設定項目は最小限に保ち、挙動は仕様書で固定してテストで検証する、という作り方です。だから、ある変更が適合するかどうかは、コードを読んだだけでは見えない判断や、その時点で並行して進んでいる作業に左右されます。書き上がったコードを後から評価するより、先に方針をすり合わせるほうが早いですし、「今回は見送り」となったときにあなたの時間を無駄にせずに済みます。何をどう変えたいか、そしてなぜかを書いてください。方向性が合えば、実装に入る前に進め方を決められます。
 

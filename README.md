@@ -1,5 +1,22 @@
 # Nextcloud Sync for Obsidian
 
+> [!IMPORTANT]
+> **This is the YANC fork.** It is a fork of
+> [siosig/obsidian-nextcloudsync](https://github.com/siosig/obsidian-nextcloudsync) by Daisuke ITO,
+> rebased onto upstream 1.0.8. Upstream remains the canonical project; this fork exists to carry
+> mobile/Android login resilience, a two-stage connection test, and sync session history.
+>
+> **Version numbers below 1.1.0 in this fork are not comparable to upstream.** The fork diverged at
+> 0.7.43 and then released 1.0.0–1.0.9 on its own, so its 1.0.0–1.0.8 are *different codebases* from
+> upstream's releases of the same numbers. 1.1.0 is the first version built on upstream's 1.0.8.
+>
+> The plugin keeps the upstream `id` (`nextcloud-sync`), so it **cannot** be listed in the official
+> Obsidian community store under that id — that id is registered to the upstream author. Install it
+> from the [releases page](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/releases), or
+> with [BRAT](https://github.com/TomBraun/obsidian-brat) pointed at this repository.
+>
+> **Report fork-specific issues here:** [yanqingwang/obsidian-nextcloud-sync-yanc](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/issues)
+
 **Good news for anyone working across multiple desktops and mobile devices.**
 
 The only cost you pay is waiting for the initial Vault index to complete on first install. From that moment on, you get:
@@ -22,8 +39,8 @@ Most "WebDAV sync" plugins treat the server as a dumb file store: they compare m
 
 This plugin is still young and some behaviour can be rough around the edges. **Please tell me what you run into — it genuinely helps.** Whether something broke, something's missing, or you just have a thought after using it, I'd love to hear from you (impressions especially make my day!):
 
-- 🐛 **Report a bug** → [GitHub Issues](https://github.com/siosig/obsidian-nextcloudsync/issues)
-- 🙋‍♂️ **Request a feature / share your impressions** → [GitHub Discussions](https://github.com/siosig/obsidian-nextcloudsync/discussions)
+- 🐛 **Report a bug** → [GitHub Issues](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/issues)
+- 🙋‍♂️ **Request a feature / share your impressions** → [GitHub Discussions](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/discussions)
 
 ---
 
@@ -119,10 +136,35 @@ Mobile is supported, with a few platform-aware differences (desktop behaviour is
 
 ## Installation
 
-### From the Community Plugins browser (recommended)
+> **This fork is not in the Community Plugins browser.** It shares the upstream plugin `id`, which is
+> already registered to the upstream author, so the browser entry points at upstream's repository.
+> Install it from this repository's releases, or with BRAT.
+
+### From this fork's releases (recommended for this fork)
+
+1. Open the [releases page](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/releases) and
+   download the assets for the version you want: `main.js`, `manifest.json`, `styles.css`.
+2. Copy them into `<YourVault>/.obsidian/plugins/nextcloud-sync/`.
+   The folder name **must** be `nextcloud-sync` — it is the manifest `id`, and Obsidian will not load
+   a plugin whose folder name does not match.
+3. Reload Obsidian and enable **Nextcloud Sync** under **Settings → Community plugins**.
+
+On **Android**, Obsidian has no "install from zip" option, so copy the three files into the vault's
+`.obsidian/plugins/nextcloud-sync/` folder over a file manager or sync client, then restart Obsidian.
+
+### Via BRAT (auto-updates)
+
+Install [BRAT](https://github.com/TomBraun/obsidian-brat), then add this repository
+(`yanqingwang/obsidian-nextcloud-sync-yanc`) as a beta plugin. BRAT installs from the latest release
+and notifies you when a newer one is published.
+
+### From the Community Plugins browser (upstream, not this fork)
 1. In Obsidian, open **Settings → Community plugins**.
 2. Disable Restricted mode, click **Browse**, and search for **Nextcloud Sync**.
 3. **Install**, then **Enable**.
+
+Note this installs **upstream** 1.0.8, which does **not** include this fork's Android login
+resilience or connection test.
 
 ### Manual installation
 1. Download `main.js` and `manifest.json` (and `styles.css` if present) from the latest [GitHub Release](../../releases).
@@ -282,7 +324,7 @@ On connect, the plugin probes `/status.php` (maintenance mode) and `/ocs/v1.php/
 
 Sync correctness is guarded by an extensive automated test suite: **hundreds of fast pure-logic tests** (run on every change) plus **live end-to-end suites that drive two devices against a real Nextcloud server**, including exhaustive option-combination matrices for conflict resolution and multi-device convergence.
 
-These tests exist specifically to prevent sync-inconsistency states — **data loss, endless re-uploading/re-downloading, a remote change that never reaches the local copy, or a local change that never reaches the remote**. Even so, no test suite can cover every possible case, and unintended behavior can never be entirely ruled out. **If you ever run into such a situation, please don't hesitate to [open an issue](https://github.com/siosig/obsidian-nextcloudsync/issues) — it will be addressed as quickly as possible.**
+These tests exist specifically to prevent sync-inconsistency states — **data loss, endless re-uploading/re-downloading, a remote change that never reaches the local copy, or a local change that never reaches the remote**. Even so, no test suite can cover every possible case, and unintended behavior can never be entirely ruled out. **If you ever run into such a situation, please don't hesitate to [open an issue](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/issues) — it will be addressed as quickly as possible.**
 
 ---
 
@@ -310,8 +352,8 @@ These tests exist specifically to prevent sync-inconsistency states — **data l
 
 Bug reports and ideas are genuinely welcome. The plugin is still maturing, and most of what has been fixed so far came from someone taking the time to describe what they saw.
 
-- 🐛 **Report a bug** → [GitHub Issues](https://github.com/siosig/obsidian-nextcloudsync/issues)
-- 🙋‍♂️ **Request a feature / share your impressions** → [GitHub Discussions](https://github.com/siosig/obsidian-nextcloudsync/discussions)
+- 🐛 **Report a bug** → [GitHub Issues](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/issues)
+- 🙋‍♂️ **Request a feature / share your impressions** → [GitHub Discussions](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/discussions)
 
 **Please open an issue or a discussion rather than sending a pull request.** A PR that arrives unannounced is read as input and valued as such, but it is unlikely to be merged as it stands. This is a single-maintainer project with a deliberate design policy — user-facing options are kept deliberately few, and behaviour is pinned by a specification that the test suite checks against — so whether a change fits depends on decisions that are not visible from the code alone, and on what is already in flight. Judging that after the code is written is harder than agreeing on the approach beforehand, and it wastes your effort whenever the answer turns out to be no. Describe what you want to change and why; if it fits, the approach can be settled before you write anything.
 
