@@ -17,6 +17,10 @@ const SETTINGS = {
   syncConfigFolder: false,
   configSync: { appearance: false, themesSnippets: false, hotkeys: false, corePlugins: false, bookmarks: false },
   networkConcurrency: 8,
+  // These tests exercise DOT-PATH ENUMERATION, so the YANC hidden-content toggles are OFF here —
+  // with the defaults (both true) isSystemExcluded filters dot paths before the scan returns.
+  excludeHiddenFiles: false,
+  excludeDotFolders: false,
 };
 
 /**
@@ -69,10 +73,10 @@ function makeVault(files: TFile[], adapter: DataAdapter): Vault {
   } as unknown as Vault;
 }
 
-function makeEngine(localAdapter: LocalAdapter) {
+function makeEngine(localAdapter: LocalAdapter, settings: Record<string, unknown> = SETTINGS) {
   const opts = {
     app: {},
-    settings: SETTINGS,
+    settings,
     localAdapter,
     stateDB: {},
     statusBar: {},
@@ -121,9 +125,30 @@ describe('dot-paths: collectDotPaths supplements Vault-enumerated files (Task 7)
     // filters them out — the whole tree is skipped, so no file under them is synced.
     expect(result.has('.git/config')).toBe(false);
     expect(result.has('.trash/deleted.md')).toBe(false);
-    // Regression: non-machine root dot content is still present.
+    // Regression: non-machine root dot content is still present (toggles off above).
     expect(result.has('.env')).toBe(true);
     expect(result.has('.archive/note.md')).toBe(true);
+  });
+
+  it('YANC defaults: with both exclude toggles on (unset settings), dot paths are NOT scanned', async () => {
+    const rawAdapter = makeDataAdapterWithDotPaths();
+    const vault = makeVault(VAULT_FILES, rawAdapter);
+    const localAdapter = new LocalAdapter(rawAdapter, vault);
+    const engine = makeEngine(localAdapter, {
+      // Omitted keys hit the engine's `?? true` default — the out-of-the-box behavior.
+      ...SETTINGS,
+      excludeHiddenFiles: undefined,
+      excludeDotFolders: undefined,
+    } as unknown as typeof SETTINGS);
+
+    const result = await (engine as unknown as {
+      scanLocalFiles(): Promise<Map<string, { size: number; mtime: number }>>;
+    }).scanLocalFiles();
+
+    // Hidden file and dotfolder content stay device-local by default; normal files still sync.
+    expect(result.has('.env')).toBe(false);
+    expect(result.has('.archive/note.md')).toBe(false);
+    expect(result.has('note.md')).toBe(true);
   });
 
   it('scanLocalFiles still includes normal Vault-tracked files', async () => {

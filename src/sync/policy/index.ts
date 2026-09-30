@@ -14,7 +14,7 @@
 // logic below can be exercised at its boundaries at all.
 import { FileState } from '../../types';
 import { SIGNATURE_SAFETY_WINDOW_MS } from '../../util/limits';
-import { isUnderExcludedFolder, HARD_EXCLUDED_FOLDERS } from '../../util/excludedFolders';
+import { isUnderExcludedFolder, HARD_EXCLUDED_FOLDERS, isHiddenFile, isUnderDotFolder } from '../../util/excludedFolders';
 import { isSyncTmpPath } from '../../data/LocalAdapter';
 import { DIR_BREAKER_REPORT_FILENAME, FILE_BREAKER_REPORT_FILENAME } from '../../ui/breakerReport';
 
@@ -98,6 +98,10 @@ export interface SystemExclusionContext {
   isConfigPathIncluded(path: string): boolean;
   /** Whether the path is this device's own log file while logging is on. */
   isActiveLogFile?(path: string): boolean;
+  /** (YANC fork) When ON, files whose basename starts with "." are never synced. Default true. */
+  excludeHiddenFiles?: boolean;
+  /** (YANC fork) When ON, paths under any dotfolder (any segment starting with ".") are never synced. Default true. */
+  excludeDotFolders?: boolean;
 }
 
 /**
@@ -130,6 +134,15 @@ export function isSystemExcluded(path: string, ctx: SystemExclusionContext): boo
   // path before the config-folder logic so it covers ordinary vault files too. This is an
   // additive layer on top of the hard exclusions above — those always take precedence.
   if (isUnderExcludedFolder(path, ctx.excludedFolders)) return true;
+  // (YANC fork) Hidden-file exclusion (basename starts with "."): `.env`, `.gitignore`,
+  // `.DS_Store`, … Independent of the folder rule below — a hidden file inside an ordinary
+  // folder is still excluded. ON by default; the engine resolves the saved setting with `?? true`.
+  if ((ctx.excludeHiddenFiles ?? true) && isHiddenFile(path)) return true;
+  // (YANC fork) Dotfolder exclusion (any path segment starts with ".") and the whole subtree
+  // beneath it: `.obsidian`, `.git`, `Notes/.hidden/x`. Generalizes the permanent `.git`/`.trash`
+  // hard exclusion above to ALL dotfolders. ON by default, so dot content stays device-local out
+  // of the box; while it is on, the config-folder rules below are unreachable for dot paths.
+  if ((ctx.excludeDotFolders ?? true) && isUnderDotFolder(path)) return true;
   // Ordinary vault files (outside the config folder) are never system-excluded.
   if (!ctx.isUnderConfigDir(path)) return false;
   // Inside the config folder: excluded unless an enabled config-sync category includes it.

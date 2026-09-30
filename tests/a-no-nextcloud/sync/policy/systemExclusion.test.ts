@@ -15,6 +15,10 @@ function ctx(over: Partial<SystemExclusionContext> = {}): SystemExclusionContext
     excludedFolders: [],
     isUnderConfigDir: () => false,
     isConfigPathIncluded: () => false,
+    // YANC dot toggles default ON in the pure function (`?? true`); most suites here pin the OTHER
+    // rules, so they opt out explicitly. The toggles themselves get their own describe below.
+    excludeHiddenFiles: false,
+    excludeDotFolders: false,
     ...over,
   };
 }
@@ -123,5 +127,59 @@ describe('isSystemExcluded — precedence, as the remote-deletion scope guard re
     expect(isSystemExcluded('notes/a.md', ctx({
       excludedFolders: undefined as unknown as readonly string[],
     }))).toBe(false);
+  });
+});
+
+// ── YANC fork: hidden-file / dotfolder toggles (default ON) ──────────────────
+//
+// excludeHiddenFiles and excludeDotFolders default to true inside isSystemExcluded itself
+// (`?? true`), so an engine built from pre-fork saved settings (fields absent) still keeps
+// dot content device-local — that is deliberate: the fork's out-of-the-box behavior must not
+// depend on a settings migration having run.
+describe('isSystemExcluded — YANC hidden-content toggles', () => {
+  it('defaults: hidden files and dotfolder subtrees are excluded when the fields are absent', () => {
+    const c = ctx({ excludeHiddenFiles: undefined, excludeDotFolders: undefined });
+    expect(isSystemExcluded('.env', c)).toBe(true);
+    expect(isSystemExcluded('.gitignore', c)).toBe(true);
+    expect(isSystemExcluded('secret/.env', c)).toBe(true);       // hidden basename in an ordinary folder
+    expect(isSystemExcluded('.archive/note.md', c)).toBe(true);  // inside a dotfolder
+    expect(isSystemExcluded('Notes/.hidden/note.md', c)).toBe(true);
+    expect(isSystemExcluded('notes/a.md', c)).toBe(false);       // ordinary content unaffected
+  });
+
+  it('excludeDotFolders wins before the config-folder rules: .obsidian stays local even when a category includes it', () => {
+    const c = ctx({
+      excludeHiddenFiles: undefined,
+      excludeDotFolders: undefined,
+      isUnderConfigDir: (p) => p.startsWith('.obsidian/'),
+      isConfigPathIncluded: (p) => p.endsWith('bookmarks.json'),
+    });
+    expect(isSystemExcluded('.obsidian/bookmarks.json', c)).toBe(true);
+    // ...but with the toggle OFF, the enabled category path syncs again.
+    expect(isSystemExcluded('.obsidian/bookmarks.json', ctx({
+      excludeDotFolders: false,
+      isUnderConfigDir: (p) => p.startsWith('.obsidian/'),
+      isConfigPathIncluded: (p) => p.endsWith('bookmarks.json'),
+    }))).toBe(false);
+  });
+
+  it('the two toggles combine additively (dotfolder rule covers any dot segment, incl. root dot files)', () => {
+    // Dotfolders OFF, hidden files ON: a root dot FILE is caught by the basename rule, but a note
+    // inside a dotfolder with an ordinary basename syncs again.
+    const filesOnly = ctx({ excludeHiddenFiles: undefined, excludeDotFolders: false });
+    expect(isSystemExcluded('.env', filesOnly)).toBe(true);
+    expect(isSystemExcluded('.archive/note.md', filesOnly)).toBe(false);
+    // Dotfolders ON, hidden files OFF: any dot segment suffices — root dot files and hidden
+    // basenames inside ordinary folders are both caught by the folder rule.
+    const foldersOnly = ctx({ excludeHiddenFiles: false, excludeDotFolders: undefined });
+    expect(isSystemExcluded('.env', foldersOnly)).toBe(true);
+    expect(isSystemExcluded('secret/.env', foldersOnly)).toBe(true);
+    expect(isSystemExcluded('.archive/note.md', foldersOnly)).toBe(true);
+  });
+
+  it('both toggles off restores plain upstream behavior for dot content', () => {
+    const c = ctx();
+    expect(isSystemExcluded('.env', c)).toBe(false);
+    expect(isSystemExcluded('.hidden-notes/idea.md', c)).toBe(false);
   });
 });

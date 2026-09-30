@@ -48,7 +48,12 @@ This plugin is still young and some behaviour can be rough around the edges. **P
 
 ---
 
-## What's new in this release (1.1.2)
+## What's new in this release (1.1.3)
+
+- **Restored: hidden files and dotfolders are excluded from sync by default** — the YANC-fork behavior that was lost in the 1.1.0 rebase onto upstream is back. Files whose name starts with `.` (e.g. `.env`, `.gitignore`) and folders whose name starts with `.` together with everything inside them (`.obsidian`, `.git`, `.archive/`, …) stay device-local, so no unnecessary files are synced. Requires Obsidian `1.13.0` or newer.
+- Two new toggles in **Settings → Excluded folders**: *Exclude hidden files* and *Exclude dotfolders*, both ON by default. Turn one off to sync that category again (this also re-enables config-folder sync for `.obsidian` while *Exclude dotfolders* is off).
+
+## What's new in 1.1.2
 
 - **Fixed: the manifest author was wrong** — the 1.1.0 rebase restored upstream's author (`Daisuke ITO`) by mistake; the fork's own author (`yanqingwang`) is back.
 - **Removed `js-yaml` from the package entirely** — Obsidian's review bot flags it even as a dev-only dependency. It was already unused in production code (frontmatter goes through Obsidian's `parseYaml`/`stringifyYaml`); the test doubles now use the `yaml` package.

@@ -319,6 +319,10 @@ describe('SyncEngine.processRemoteDeletion — out-of-scope safety', () => {
     const settings = {
       configDir: '.obsidian',
       syncConfigFolder: bookmarks,
+      // YANC dot toggles OFF: this suite pins the config-deletion scope guard, which the toggles
+      // (ON by default) would otherwise shadow for every .obsidian path.
+      excludeHiddenFiles: false,
+      excludeDotFolders: false,
       configSync: { appearance: false, themesSnippets: false, hotkeys: false, corePlugins: false, bookmarks },
     } as unknown;
     const engineOpts = {

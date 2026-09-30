@@ -15,10 +15,35 @@
  *  - `.trash` — Obsidian's device-local trash; syncing it clutters every device and churns against
  *               the plugin's own trashFile-based deletion (remote delete → local .trash → re-upload).
  *
- * This is a TARGETED list, not a blanket "all dotfolders" rule: other root dot content (`.archive/`,
- * `.env`) must keep syncing (Task 7 / collectDotPaths).
+ * This is a TARGETED list, not a blanket "all dotfolders" rule: broader dot exclusion is the
+ * user-toggleable {@link isUnderDotFolder} rule (settings.excludeDotFolders, ON by default in the
+ * YANC fork), and when that toggle is off, other root dot content (`.archive/`, `.env`) syncs
+ * again (Task 7 / collectDotPaths).
  */
 export const HARD_EXCLUDED_FOLDERS: readonly string[] = ['.git', '.trash'];
+
+/**
+ * True when `path`'s basename is a hidden file — i.e. its name starts with ".".
+ * Examples: `.env`, `.gitignore`, `.DS_Store`. Folder segments are NOT considered here;
+ * a path like `secret/.env` has a hidden-file basename, while `.obsidian/config.json`
+ * does not (its basename `config.json` is ordinary — the hidden *folder* is judged by
+ * {@link isUnderDotFolder}). Vault-relative, "/"-separated paths only. (YANC fork.)
+ */
+export function isHiddenFile(path: string): boolean {
+  const base = path.split('/').pop() ?? '';
+  return base.startsWith('.');
+}
+
+/**
+ * True when any folder segment of `path` starts with "." — i.e. the path lives inside a
+ * hidden (dot) folder or IS a hidden folder itself. Examples: `.obsidian`, `.git/config`,
+ * `Notes/.hidden/note.md`. This covers both the dotfolder and everything nested beneath it,
+ * so excluding a dotfolder prunes its whole subtree in one rule. Vault-relative, "/"-separated
+ * paths only (no leading slash). (YANC fork.)
+ */
+export function isUnderDotFolder(path: string): boolean {
+  return path.split('/').some(seg => seg.length > 0 && seg.startsWith('.'));
+}
 
 /**
  * Normalize a user-entered folder path into the canonical vault-relative form used for

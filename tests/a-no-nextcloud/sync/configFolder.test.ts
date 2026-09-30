@@ -44,6 +44,10 @@ function settings(syncConfigFolder: boolean, configSync: Partial<ConfigSyncCateg
   return {
     configDir: CONFIG_DIR,
     syncConfigFolder,
+    // YANC dot toggles OFF: this suite pins the config-folder machinery, which the dot toggles
+    // (ON by default) would otherwise shadow for every .obsidian path.
+    excludeHiddenFiles: false,
+    excludeDotFolders: false,
     configSync: { bookmarks: false, others: false, ...configSync },
   } as unknown as DavSyncSettings;
 }

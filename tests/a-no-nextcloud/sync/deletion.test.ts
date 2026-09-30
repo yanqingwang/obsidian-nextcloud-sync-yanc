@@ -25,6 +25,9 @@ function makeEngine(opts?: { resolved?: unknown; exists?: boolean; trashRejects?
     // the tracked subtree to forget it too.
     stateDB: { deleteFile, getAllFiles: () => [], getAllDirs: () => [], deleteDir: jest.fn() },
     localAdapter: { ignore: jest.fn() },
+    // YANC dot toggles OFF: this suite pins the deletion sink mechanics, which the toggles (ON by
+    // default) would otherwise shadow for the .obsidian paths used below.
+    settings: { excludeHiddenFiles: false, excludeDotFolders: false },
   } as never);
   const summary = { downloadedCount: 0 } as { downloadedCount: number };
 

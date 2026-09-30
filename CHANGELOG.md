@@ -11,6 +11,18 @@ and folded into the next stable entry.
 
 > A Japanese translation is available at [`CHANGELOG.ja.md`](CHANGELOG.ja.md).
 
+## [1.1.3] - 2026-10-01
+
+### Added
+- **Hidden-file and dotfolder exclusion is back (YANC fork behavior, lost in the 1.1.0 rebase).**
+  Files whose basename starts with `.` and folders whose name starts with `.` (with their entire
+  subtree) are excluded from sync by default, so `.obsidian`, `.env`, `.gitignore`, `.archive/` etc.
+  stay device-local and no unnecessary files sync. Two new settings toggles — *Exclude hidden
+  files* and *Exclude dotfolders* (both ON) — in Settings → Excluded folders let each category be
+  synced again when turned off. Implemented in `isSystemExcluded` (the single choke point shared by
+  the local scan, the remote filter, and the remote-deletion scope guard), so exclusions hold in
+  every direction.
+
 ## [1.1.2] - 2026-09-30
 
 ### Fixed

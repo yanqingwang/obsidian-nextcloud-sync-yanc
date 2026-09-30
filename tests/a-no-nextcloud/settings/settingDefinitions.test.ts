@@ -71,14 +71,15 @@ const BASELINE: { heading: string | null; rows: string[] }[] = [
       'Conflict strategy',
     ],
   },
-  { heading: 'Excluded folders', rows: ['Excluded folders', 'Add excluded folder'] },
+  // YANC fork adds the two hidden-content toggles (baseline extends upstream's here on purpose).
+  { heading: 'Excluded folders', rows: ['Excluded folders', 'Exclude hidden files', 'Exclude dotfolders', 'Add excluded folder'] },
   { heading: 'Config folder (.obsidian)', rows: ['Sync config folder'] },
   { heading: 'Debug', rows: ['Enable logging (troubleshooting)'] },
   { heading: 'Advanced (use with caution)', rows: ['Mass-delete safety limit'] },
   { heading: 'Maintenance', rows: ['Reset vault index', 'Mirror from remote', 'Last session summary'] },
 ];
 
-const STATIC_ROW_COUNT = BASELINE.reduce((n, s) => n + s.rows.length, 0); // 28 (27 upstream + "Test connection")
+const STATIC_ROW_COUNT = BASELINE.reduce((n, s) => n + s.rows.length, 0); // 30 (27 upstream + "Test connection" + 2 YANC toggles)
 
 function makeHost(over: Partial<SettingDefinitionsHost> = {}): SettingDefinitionsHost {
   return {

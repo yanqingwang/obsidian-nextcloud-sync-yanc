@@ -1,7 +1,7 @@
 {
   "id": "nextcloud-sync-yanc",
   "name": "Nextcloud sync YANC",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "minAppVersion": "1.13.0",
   "description": "Bidirectional sync between your Vault and Nextcloud using hash-based change detection.",
   "author": "yanqingwang",

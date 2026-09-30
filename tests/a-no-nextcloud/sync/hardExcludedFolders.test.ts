@@ -14,8 +14,10 @@ import { DIR_BREAKER_REPORT_FILENAME, FILE_BREAKER_REPORT_FILENAME } from '../..
  *    (discussion #6). The settings UI already DOCUMENTS these dotfolders as excluded; this makes
  *    the implementation match that promised contract.
  *
- * Scope guard: the exclusion is a TARGETED list, not a blanket "all dotfolders" rule. Non-machine
- * dotfolders/files at the vault root (e.g. .archive/, .env) must still sync (Task 7 / dotPaths).
+ * Scope guard: the exclusion is a TARGETED list, not a blanket "all dotfolders" rule. Broader dot
+ * exclusion exists as the user-toggleable excludeHiddenFiles/excludeDotFolders settings (YANC fork,
+ * ON by default); this suite pins the targeted-list rule with those toggles OFF so the two layers
+ * stay independently testable (Task 7 / dotPaths covers the toggle mechanics).
  */
 
 function isSystemExcluded(path: string): boolean {
@@ -25,6 +27,9 @@ function isSystemExcluded(path: string): boolean {
     loggingEnabled: false,
     syncConfigFolder: false,
     excludedFolders: [],
+    // Toggles OFF: this suite pins the always-on .git/.trash rule, not the YANC dot toggles.
+    excludeHiddenFiles: false,
+    excludeDotFolders: false,
     configSync: { appearance: false, themesSnippets: false, hotkeys: false, corePlugins: false, bookmarks: false },
   } as unknown as DavSyncSettings;
   const engine = new SyncEngine({

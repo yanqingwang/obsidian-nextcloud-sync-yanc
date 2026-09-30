@@ -437,6 +437,18 @@ function excludedFoldersGroup(host: SettingDefinitionsHost): SettingDefinitionGr
       render: (setting: Setting) =>
         host.renderReadOnly(setting, excluded.length ? `${excluded.length} excluded` : 'None'),
     } as SettingGroupItem,
+    {
+      name: 'Exclude hidden files',
+      desc: 'Never sync files whose name starts with "." (for example .env and .gitignore). Hidden files inside ordinary folders are excluded too. On by default. (YANC fork.)',
+      aliases: ['hidden', 'dotfiles', 'dot files', '.env', 'DS_Store'],
+      control: { type: 'toggle', key: 'excludeHiddenFiles' },
+    } as SettingGroupItem,
+    {
+      name: 'Exclude dotfolders',
+      desc: 'Never sync folders whose name starts with "." and everything inside them (for example .obsidian, .git, .hidden). This generalizes the always-on .git/.trash exclusion to all dotfolders, so dot content stays device-local. While on, config-folder sync has no effect. On by default. (YANC fork.)',
+      aliases: ['hidden folders', 'dotfolders', 'dot folders', 'obsidian folder'],
+      control: { type: 'toggle', key: 'excludeDotFolders' },
+    } as SettingGroupItem,
   ];
   // One row per excluded folder. Dynamic by design: getSettingDefinitions() runs on every render.
   for (const folder of excluded) {
