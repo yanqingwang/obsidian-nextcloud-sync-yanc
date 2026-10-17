@@ -255,6 +255,13 @@ export class NextcloudSyncSettingTab extends PluginSettingTab implements Setting
       void this.plugin.logger.log('login: start() ok (loginUrl received)');
       const opened = window.open(init.loginUrl, '_blank');
       void this.plugin.logger.log(`login: window.open → ${opened ? 'opened' : 'BLOCKED (returned null)'}`);
+      if (!opened) {
+        // Some mobile builds never open a browser from window.open (reported on HarmonyOS).
+        // Login Flow v2 approval is server-side, so the URL works in ANY browser on ANY device:
+        // whoever polls the matching token — this device, already polling — receives the app
+        // password. Hand the URL over instead of leaving a silent 3-minute wait.
+        void this.handOverLoginUrl(init.loginUrl);
+      }
       new Notice('Waiting for browser approval… (up to 3 minutes)', 8000);
 
       void this.plugin.logger.log('login: polling started');
@@ -318,6 +325,31 @@ export class NextcloudSyncSettingTab extends PluginSettingTab implements Setting
         new Notice(`❌ Login failed: ${friendlyNetworkError(err)}`, 12000);
       }
     }
+  }
+
+  /**
+   * The browser never opened (window.open was blocked): surface the login URL for manual approval.
+   *
+   * The URL is copied to the clipboard first — a Notice is transient and not selectable, so a long
+   * URL cannot be reliably taken from one. If the webview refuses clipboard access (the write is
+   * async, and by then the tap's user activation may have expired), the Notice still carries the
+   * URL verbatim as the last resort. Either way the approval itself can happen on another device:
+   * the app password is delivered to this device's poll, not to the browser that approved.
+   */
+  private async handOverLoginUrl(loginUrl: string): Promise<void> {
+    let copied = false;
+    try {
+      await navigator.clipboard.writeText(loginUrl);
+      copied = true;
+    } catch (clipboardErr) {
+      void this.plugin.logger.log(`login: clipboard write failed — ${(clipboardErr as Error).message}`);
+    }
+    new Notice(
+      (copied ? '📋 Login URL copied to clipboard — ' : 'Browser did not open — ') +
+      'open it in ANY browser (e.g. on your computer), sign in and approve; this device is ' +
+      `polling and will finish sign-in automatically. URL: ${loginUrl}`,
+      15000,
+    );
   }
 
   /**

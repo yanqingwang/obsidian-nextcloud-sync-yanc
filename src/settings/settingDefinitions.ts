@@ -261,7 +261,7 @@ function nextcloudGroup(host: SettingDefinitionsHost): SettingDefinitionGroup {
     notice(host, 'Sign-in help', SIGN_IN_HELP),
     {
       name: 'Log in via browser (Nextcloud) — recommended',
-      desc: 'Easiest path: approve once in your browser and it fills Username and stores an App password for you, so you can skip the two manual fields. Requires the server URL above (only its host part). Polls up to ~3 minutes. Falls back to manual entry on non-Nextcloud servers.',
+      desc: 'Easiest path: approve once in your browser and it fills Username and stores an App password for you, so you can skip the two manual fields. Requires the server URL above (only its host part). Polls up to ~3 minutes. If no browser opens (some mobile builds), the login URL is copied to the clipboard — approve it in any browser on any device. Falls back to manual entry on non-Nextcloud servers.',
       aliases: ['login', 'sign in', 'oauth', 'browser', 'authorize'],
       disabled: () => host.settings.serverUrl.trim().length === 0,
       action: () => { void host.startLoginFlow(); },
