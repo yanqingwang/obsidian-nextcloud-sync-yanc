@@ -11,6 +11,16 @@ and folded into the next stable entry.
 
 > A Japanese translation is available at [`CHANGELOG.ja.md`](CHANGELOG.ja.md).
 
+## [1.1.5] - 2026-10-17
+
+### Fixed
+- **On phones where the browser never opens (reported on HarmonyOS), the login URL could not actually
+  be copied.** The fallback put the URL into a Notice — which is not selectable on mobile — and its
+  clipboard write ran after the awaited flow-start round-trip, by which time the tap's user activation
+  had expired and the write was refused. The URL is now handed over in a modal with a selectable text
+  field plus **Copy URL** / **Open in browser** buttons, each acting on a fresh user gesture, so both
+  the clipboard write and the browser launch get a real chance to succeed.
+
 ## [1.1.4] - 2026-10-15
 
 ### Fixed

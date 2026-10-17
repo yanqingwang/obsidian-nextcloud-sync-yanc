@@ -48,7 +48,11 @@ This plugin is still young and some behaviour can be rough around the edges. **P
 
 ---
 
-## What's new in this release (1.1.4)
+## What's new in this release (1.1.5)
+
+- **Fixed: on phones where the browser never opens (HarmonyOS), the login URL could not actually be copied.** The fallback showed the URL in a Notice — not selectable on mobile — and its clipboard write ran too late to keep the tap's user activation, so it was refused. The URL now opens in a modal with a selectable text field plus **Copy URL** / **Open in browser** buttons acting on a fresh tap, so both actually succeed.
+
+## What's new in 1.1.4
 
 - **Fixed: "Test connection" could say ✅ while every sync request 404'd.** If the **Server URL** was missing the `/files/<user>/` segment, both existing stages still passed — their URLs are built by *stripping* `/remote.php/...` off the Server URL, so they always land on the host — and the sync then failed with `HTTP 404 (PROPFIND)` on every run. A third stage now checks the Server URL itself and tells you the expected shape. Requires Obsidian `1.13.0` or newer.
 

@@ -5,6 +5,7 @@ import { LoginFlowError, DavSyncSettings, NetworkError } from '../types';
 import { parseMergeableExtensions, formatMergeableExtensions } from '../util/mergeableExtensions';
 import { LoginFlowV2 } from '../auth/LoginFlowV2';
 import { friendlyNetworkError } from '../network/errorMessages';
+import { LoginUrlModal } from '../ui/LoginUrlModal';
 import { checkReachability, checkWebdavBase, basicAuthHeader } from '../network/ConnectionTester';
 import { verifyAppPassword, AppPasswordRejectedError } from '../auth/verifyCredentials';
 import { normalizeExcludedFolder } from '../util/excludedFolders';
@@ -328,28 +329,16 @@ export class NextcloudSyncSettingTab extends PluginSettingTab implements Setting
   }
 
   /**
-   * The browser never opened (window.open was blocked): surface the login URL for manual approval.
+   * The browser never opened (window.open was blocked): hand the login URL to the user in a modal.
    *
-   * The URL is copied to the clipboard first — a Notice is transient and not selectable, so a long
-   * URL cannot be reliably taken from one. If the webview refuses clipboard access (the write is
-   * async, and by then the tap's user activation may have expired), the Notice still carries the
-   * URL verbatim as the last resort. Either way the approval itself can happen on another device:
+   * A Notice cannot carry a selectable URL on mobile, and the pre-emptive clipboard write used to
+   * fail anyway — by the time it ran, the tap's user activation had expired across the awaited
+   * start() round-trip. The modal instead offers a selectable text field plus Copy / Open buttons
+   * whose click gestures are fresh. Either way the approval itself can happen on another device:
    * the app password is delivered to this device's poll, not to the browser that approved.
    */
-  private async handOverLoginUrl(loginUrl: string): Promise<void> {
-    let copied = false;
-    try {
-      await navigator.clipboard.writeText(loginUrl);
-      copied = true;
-    } catch (clipboardErr) {
-      void this.plugin.logger.log(`login: clipboard write failed — ${(clipboardErr as Error).message}`);
-    }
-    new Notice(
-      (copied ? '📋 Login URL copied to clipboard — ' : 'Browser did not open — ') +
-      'open it in ANY browser (e.g. on your computer), sign in and approve; this device is ' +
-      `polling and will finish sign-in automatically. URL: ${loginUrl}`,
-      15000,
-    );
+  private handOverLoginUrl(loginUrl: string): void {
+    new LoginUrlModal(this.app, loginUrl).open();
   }
 
   /**
