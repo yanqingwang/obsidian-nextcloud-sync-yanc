@@ -5,7 +5,7 @@ import { LoginFlowError, DavSyncSettings, NetworkError } from '../types';
 import { parseMergeableExtensions, formatMergeableExtensions } from '../util/mergeableExtensions';
 import { LoginFlowV2 } from '../auth/LoginFlowV2';
 import { friendlyNetworkError } from '../network/errorMessages';
-import { checkReachability } from '../network/ConnectionTester';
+import { checkReachability, checkWebdavBase, basicAuthHeader } from '../network/ConnectionTester';
 import { verifyAppPassword, AppPasswordRejectedError } from '../auth/verifyCredentials';
 import { normalizeExcludedFolder } from '../util/excludedFolders';
 import { normalizeNumericInput } from '../util/numericInput';
@@ -353,7 +353,7 @@ export class NextcloudSyncSettingTab extends PluginSettingTab implements Setting
   }
 
   /**
-   * Two-stage connection diagnostic behind the "Test connection" row.
+   * Three-stage connection diagnostic behind the "Test connection" row.
    *
    * Stage 1 is deliberately unauthenticated (`/status.php`): one HTTP response of any kind proves DNS,
    * TCP, TLS and HTTP all work, which is the only way to tell "the network path is interfering"
@@ -362,6 +362,10 @@ export class NextcloudSyncSettingTab extends PluginSettingTab implements Setting
    * mobile login problem undiagnosable: the user could not tell a proxy from a wrong password.
    *
    * Stage 2 then builds a real client, which authenticates and reports the negotiated WebDAV target.
+   *
+   * Stage 3 PROPFINDs the configured Server URL itself, because neither of the first two stages can
+   * see a wrong one: their URLs are derived by stripping `/remote.php/...` off it, so a URL that is
+   * not a WebDAV collection still reads as "connection OK". See {@link checkWebdavBase}.
    */
   async testConnection(): Promise<void> {
     const s = this.plugin.settings;
@@ -391,7 +395,24 @@ export class NextcloudSyncSettingTab extends PluginSettingTab implements Setting
       const { features } = await factory.createClient();
       const where = features.isNextcloud && features.version ? ` (Nextcloud ${features.version})` : '';
       void this.plugin.logger.log(`test-connection: auth ok${where}`);
-      new Notice(`✅ Connection OK — ${reach.detail}; credentials accepted${where}.`, 8000);
+
+      // Stage 3 — the credentials are accepted, but is there a WebDAV collection for the sync to talk
+      // to? Stages 1 and 2 both derive their URLs by STRIPPING `/remote.php/...` off the Server URL, so
+      // a Server URL that is not a WebDAV collection at all — a missing `/files/<user>/` segment, or a
+      // bare host — passes both of them. The sync then 404s (or 405s) on every PROPFIND/PUT/REPORT,
+      // which is indistinguishable from a broken server unless this stage names it.
+      const baseCheck = await checkWebdavBase(s.serverUrl, basicAuthHeader(s.username, password));
+      void this.plugin.logger.log(`test-connection: webdav base — ${baseCheck.ok ? 'ok' : 'failed'} (${baseCheck.detail})`);
+      if (!baseCheck.ok) {
+        new Notice(
+          `❌ The server and credentials are fine, but the sync target is not usable: ${baseCheck.detail} `
+          + 'Fix the Server URL, then test again.',
+          15000,
+        );
+        return;
+      }
+
+      new Notice(`✅ Connection OK — ${reach.detail}; credentials accepted${where}; ${baseCheck.detail}.`, 9000);
     } catch (err) {
       void this.plugin.logger.log(`test-connection: ERROR — ${(err as Error).message}`, 'error');
       const status = err instanceof NetworkError ? err.status : null;

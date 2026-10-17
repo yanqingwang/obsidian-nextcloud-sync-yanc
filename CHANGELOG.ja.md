@@ -11,6 +11,20 @@
 
 > 英語版（原文）は [`CHANGELOG.md`](CHANGELOG.md) を参照してください。
 
+## [1.1.4] - 2026-10-15
+
+### 修正
+- **同期に使えない Server URL でも「Test connection」が成功と表示され、その後のリクエストがすべて
+  `HTTP 404` で失敗していました。** 既存の 2 段階はいずれも Server URL から `/remote.php/...` を
+  *取り除いて* URL を組み立てるため、`/status.php` と capabilities の確認は入力されたパスに関係なく
+  ホストに到達します。そのため `/files/<user>/` セグメントが欠けた Server URL（例：
+  `https://host/remote.php/dav/<user>/<folder>`）でも認証は成功し「✅ Connection OK」と表示される一方、
+  同期が発行する PROPFIND／PUT／REPORT は存在しないコレクションに向かい、すべて 404 になっていました。
+  3 段階目として、保存済みの認証情報で Server URL 自体に PROPFIND を行い、必要な
+  `https://<host>/remote.php/dav/files/<user>/` の形式を示して問題を明示します。`404` だけでは
+  判断しません（初回同期で作成される未存在フォルダを指している場合があるため）、親コレクションも
+  確認し、親がコレクションでない場合にのみ URL の誤りとして報告します。
+
 ## [1.1.3] - 2026-10-01
 
 ### 追加

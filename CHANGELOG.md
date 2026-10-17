@@ -11,6 +11,21 @@ and folded into the next stable entry.
 
 > A Japanese translation is available at [`CHANGELOG.ja.md`](CHANGELOG.ja.md).
 
+## [1.1.4] - 2026-10-15
+
+### Fixed
+- **"Test connection" reported success for a Server URL the sync could not use, and every request
+  then failed with `HTTP 404`.** Both existing stages derive their URLs by *stripping* `/remote.php/...`
+  off the Server URL, so `/status.php` and the capabilities probe land on the host no matter what path
+  was entered: a Server URL missing the `/files/<user>/` segment (for example
+  `https://host/remote.php/dav/<user>/<folder>`) authenticated fine and read as "✅ Connection OK",
+  while every PROPFIND/PUT/REPORT the sync issued went to a collection that does not exist. A third
+  stage now PROPFINDs the configured Server URL itself with the stored credentials and names the
+  problem, including the required `https://<host>/remote.php/dav/files/<user>/` shape. A `404` is not
+  treated as a verdict on its own — the Server URL may legitimately name a folder the first sync has
+  yet to create — so its parent collection is asked too, and only a URL whose parent is not a
+  collection is reported as wrong.
+
 ## [1.1.3] - 2026-10-01
 
 ### Added
