@@ -143,6 +143,43 @@ export class NextcloudSyncSettingTab extends PluginSettingTab implements Setting
     if (cls) setting.descEl.addClass(cls);
   }
 
+  /** The Login Flow v2 URL waiting for approval, or null (drives the persistent URL row). */
+  private loginUrlPending: string | null = null;
+
+  pendingLoginUrl(): string | null {
+    return this.loginUrlPending;
+  }
+
+  /**
+   * The pending login URL as a persistent row below "Log in via browser". Unlike the one-shot
+   * modal, it survives app switches: the user can go open the URL in any browser (or another
+   * device) and come back to copy it again. The input stays ENABLED on purpose — a disabled
+   * input cannot be long-pressed → Select All → Copied on mobile; edits are simply ignored.
+   */
+  renderLoginUrl(setting: Setting): void {
+    const url = this.loginUrlPending;
+    if (!url) return;
+    setting.addText((text) => text.setValue(url));
+    setting.addButton((btn) => btn
+      .setButtonText('Copy URL')
+      .setCta()
+      .onClick(async () => {
+        try {
+          await navigator.clipboard.writeText(url);
+        } catch {
+          // Legacy fallback for webviews without the async clipboard API: a focused, selected
+          // input is what execCommand copies.
+          const input = setting.controlEl.querySelector('input');
+          if (input) {
+            input.focus();
+            (input as HTMLInputElement).select();
+            document.execCommand('copy');
+          }
+        }
+        new Notice('📋 Login URL copied to clipboard', 4000);
+      }));
+  }
+
   /**
    * The app password. Stored in Obsidian's encrypted Secret Storage via SecretComponent; only the
    * secret's reference ID is kept in data.json, and the declarative control set has no secret type.
@@ -254,10 +291,18 @@ export class NextcloudSyncSettingTab extends PluginSettingTab implements Setting
       void this.plugin.logger.log('login: start() POST →');
       const init = await LoginFlowV2.start(serverBaseUrl);
       void this.plugin.logger.log('login: start() ok (loginUrl received)');
+      // Park the URL in the settings UI while the flow waits: the persistent row below the login
+      // button (and, on mobile, the modal) can then be used at ANY time to copy it — not only in
+      // the moment. Cleared in the finally below once the flow ends either way.
+      this.loginUrlPending = init.loginUrl;
+      this.update();
       const opened = window.open(init.loginUrl, '_blank');
       void this.plugin.logger.log(`login: window.open → ${opened ? 'opened' : 'BLOCKED (returned null)'}`);
-      if (!opened) {
-        // Some mobile builds never open a browser from window.open (reported on HarmonyOS).
+      if (Platform.isMobile || !opened) {
+        // Mobile: always hand the URL over in a modal. Some mobile webviews (HarmonyOS) return a
+        // truthy-but-useless value from window.open and never show a browser, so the return value
+        // cannot be trusted there — the modal (Copy URL / Open in browser buttons) is the primary
+        // handover UI, not just a fallback. Desktop keeps the null-check fallback only.
         // Login Flow v2 approval is server-side, so the URL works in ANY browser on ANY device:
         // whoever polls the matching token — this device, already polling — receives the app
         // password. Hand the URL over instead of leaving a silent 3-minute wait.
@@ -324,6 +369,12 @@ export class NextcloudSyncSettingTab extends PluginSettingTab implements Setting
         new Notice('This server does not support login flow. Please enter an app password manually.', 8000);
       } else {
         new Notice(`❌ Login failed: ${friendlyNetworkError(err)}`, 12000);
+      }
+    } finally {
+      // The flow ended (approved, timed out, or failed): the parked URL is stale either way.
+      if (this.loginUrlPending !== null) {
+        this.loginUrlPending = null;
+        this.update();
       }
     }
   }

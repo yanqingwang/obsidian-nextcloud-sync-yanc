@@ -11,6 +11,20 @@ and folded into the next stable entry.
 
 > A Japanese translation is available at [`CHANGELOG.ja.md`](CHANGELOG.ja.md).
 
+## [1.1.6] - 2026-10-17
+
+### Fixed
+- **On mobile, the login URL could silently never appear.** Whether the handover UI showed at all
+  depended on `window.open`'s return value, which some mobile webviews (HarmonyOS) get wrong: they
+  report success while no browser ever opens. Mobile now always shows the handover modal.
+
+### Added
+- **The login URL now stays parked in the settings until the flow ends.** The one-time URL (valid
+  ~20 minutes) renders as a selectable field with a **Copy URL** button in a "Login URL — waiting
+  for approval" row below the login button, so it can be copied at any time — including after
+  switching to another app or browser. (The URL cannot be shown in advance: the server generates
+  a fresh one on every click.)
+
 ## [1.1.5] - 2026-10-17
 
 ### Fixed

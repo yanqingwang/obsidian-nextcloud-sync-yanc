@@ -58,6 +58,11 @@ export interface SettingDefinitionsHost {
   openSyncStatus(): unknown;
   startLoginFlow(): unknown;
   /**
+   * The Login Flow v2 URL currently waiting for approval, or null. While non-null, the
+   * "Login URL — waiting for approval" row renders below the login button.
+   */
+  pendingLoginUrl(): string | null;
+  /**
    * Two-stage credential diagnostic: an unauthenticated reachability probe, then the stored
    * credentials. Kept on the host (not inline in the definition) so the stage logic and its Notice
    * wording live in one place.
@@ -68,6 +73,8 @@ export interface SettingDefinitionsHost {
 
   /** Draws the SecretComponent row (no declarative equivalent — see the header). */
   renderAppPassword(setting: Setting): unknown;
+  /** Draws the pending login URL as a selectable field plus a copy button (see pendingLoginUrl). */
+  renderLoginUrl(setting: Setting): unknown;
   /** Draws a slider plus its numeric input (spec 036). */
   renderNumberSlider(setting: Setting, opts: NumberSliderOptions): unknown;
   /** Draws a disabled, informational value. */
@@ -116,6 +123,7 @@ export const RENDER_ONLY_ROWS = {
     'Sign-in help',
     'Manual sign-in',
     'Advanced warning',
+    'Login URL — waiting for approval',
   ] as string[],
   /**
    * Settings whose row is a `render` row, so the key-integrity check cannot reach them.
@@ -261,11 +269,22 @@ function nextcloudGroup(host: SettingDefinitionsHost): SettingDefinitionGroup {
     notice(host, 'Sign-in help', SIGN_IN_HELP),
     {
       name: 'Log in via browser (Nextcloud) — recommended',
-      desc: 'Easiest path: approve once in your browser and it fills Username and stores an App password for you, so you can skip the two manual fields. Requires the server URL above (only its host part). Polls up to ~3 minutes. If no browser opens (some mobile builds), the login URL is copied to the clipboard — approve it in any browser on any device. Falls back to manual entry on non-Nextcloud servers.',
+      desc: 'Easiest path: approve once in your browser and it fills Username and stores an App password for you, so you can skip the two manual fields. Requires the server URL above (only its host part). Polls up to ~3 minutes. If no browser opens (some mobile builds), the login URL appears in a popup AND in the row below — open it in any browser on any device. Falls back to manual entry on non-Nextcloud servers.',
       aliases: ['login', 'sign in', 'oauth', 'browser', 'authorize'],
       disabled: () => host.settings.serverUrl.trim().length === 0,
       action: () => { void host.startLoginFlow(); },
     },
+    {
+      // Renders only while a login flow is waiting for approval (see pendingLoginUrl). The URL is
+      // one-time and server-generated per click — it does not exist before the button is pressed,
+      // so this can never be a static row.
+      name: 'Login URL — waiting for approval',
+      desc: 'The one-time link of the login flow above (valid ~20 minutes). Open it in ANY browser — this phone, a PC, any device — sign in and approve; this device is polling and finishes sign-in automatically.',
+      aliases: ['login url', 'approve'],
+      searchable: false,
+      visible: () => host.pendingLoginUrl() !== null,
+      render: (setting: Setting) => host.renderLoginUrl(setting),
+    } as SettingGroupItem,
     {
       name: 'Test connection',
       desc: 'Checks the network path to the server first (unauthenticated /status.php), then the stored credentials. Two stages so the message tells you WHICH one failed: a TLS or socket error means the network path is interfering, while an authentication error means the app password is wrong or expired. Use this when browser sign-in is unavailable.',

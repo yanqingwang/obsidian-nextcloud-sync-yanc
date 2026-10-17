@@ -48,7 +48,11 @@ This plugin is still young and some behaviour can be rough around the edges. **P
 
 ---
 
-## What's new in this release (1.1.5)
+## What's new in this release (1.1.6)
+
+- **Fixed: on mobile, the login URL could silently never appear** — the handover UI depended on `window.open`'s return value, which some mobile webviews (HarmonyOS) get wrong. Mobile now always shows the handover modal, **and** the one-time login URL stays parked in a selectable "Login URL — waiting for approval" row (with a **Copy URL** button) below the login button until the flow ends, so you can copy it at any time — even after switching apps. Requires Obsidian `1.13.0` or newer.
+
+## What's new in 1.1.5
 
 - **Fixed: on phones where the browser never opens (HarmonyOS), the login URL could not actually be copied.** The fallback showed the URL in a Notice — not selectable on mobile — and its clipboard write ran too late to keep the tap's user activation, so it was refused. The URL now opens in a modal with a selectable text field plus **Copy URL** / **Open in browser** buttons acting on a fresh tap, so both actually succeed.
 
