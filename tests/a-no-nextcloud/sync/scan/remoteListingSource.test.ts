@@ -26,6 +26,7 @@ function build(over: Partial<RemoteListingDeps> = {}, files: FileState[] = [], d
       setFullScanSkipCount: (n: number) => { skip = n; },
     } as unknown as RemoteListingDeps['stateDB'],
     isNextcloud: () => true,
+    requiresRealListing: () => false,
     networkConcurrency: () => 2,
     ...over,
   };

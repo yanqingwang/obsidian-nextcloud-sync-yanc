@@ -316,6 +316,8 @@ export class SyncEngine {
     this.remoteListing = new RemoteListingSource({
       stateDB: opts.stateDB,
       isNextcloud: () => this.features?.isNextcloud === true,
+      requiresRealListing: () => (this.opts.settings?.purgeExcludedExtensionsRemote ?? false)
+        && (this.opts.settings?.excludedExtensions?.length ?? 0) > 0,
       networkConcurrency: () => Math.max(1, this.opts.settings.networkConcurrency),
       logger: opts.logger,
     });

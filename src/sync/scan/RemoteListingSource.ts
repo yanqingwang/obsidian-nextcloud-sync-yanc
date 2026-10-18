@@ -25,6 +25,12 @@ export interface RemoteListingDeps {
   /** Whether the connected server is a Nextcloud — the root-ETag shortcut exists nowhere else. */
   isNextcloud(): boolean;
   /**
+   * When true, the caller needs the REAL remote listing (not a State-rebuilt one), e.g. because an
+   * opt-in cleanup pass must see files that are never tracked in State (excluded-extension purge).
+   * Accessor so it reflects the live setting.
+   */
+  requiresRealListing(): boolean;
+  /**
    * Configured parallelism for the on-demand checksum pass. Callers are expected to floor the raw
    * setting (which exposes 0), but the batching loop below floors it again: it advances by this
    * value, so a 0 arriving here would not be slow — it would never terminate.
@@ -62,7 +68,12 @@ export class RemoteListingSource {
     // never a missed change). Nextcloud only — getRootEtag() is null elsewhere (no short-circuit).
     const cur = isNextcloud ? await client.getRootEtag() : null;
 
-    if (cur != null && stored != null && cur === stored && !forced) {
+    // (YANC fork) When the excluded-extension purge is on, the cleanup pass must see remote files
+    // that are never tracked in State (isSystemExcluded drops them). A State-rebuilt listing would
+    // miss them entirely, so skip the short-circuit and force a real scan.
+    const needReal = this.deps.requiresRealListing();
+
+    if (cur != null && stored != null && cur === stored && !forced && !needReal) {
       const remoteFiles = this.rebuildRemoteFilesFromState();
       const cachedDirs = this.rebuildRemoteDirsFromState();
       db.setFullScanSkipCount(skipCount + 1);

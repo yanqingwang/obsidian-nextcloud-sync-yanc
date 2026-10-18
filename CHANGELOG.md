@@ -11,6 +11,15 @@ and folded into the next stable entry.
 
 > A Japanese translation is available at [`CHANGELOG.ja.md`](CHANGELOG.ja.md).
 
+## [1.2.1] - 2026-10-18
+
+### Fixed
+- **Excluded-extension server cleanup did not run (YANC fork).** When the root ETag was unchanged, the
+  full scan short-circuited and rebuilt the remote file list from State — but excluded-extension files
+  are never tracked in State (the system-exclusion guard drops them), so the purge pass found nothing
+  to delete. The listing source now skips the short-circuit whenever the purge toggle is on and
+  `excludedExtensions` is non-empty, forcing a real scan so the cleanup sees every server-side file.
+
 ## [1.2.0] - 2026-10-18
 
 ### Added
