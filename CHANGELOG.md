@@ -11,7 +11,27 @@ and folded into the next stable entry.
 
 > A Japanese translation is available at [`CHANGELOG.ja.md`](CHANGELOG.ja.md).
 
-## [1.1.7] - 2026-10-18
+## [1.2.0] - 2026-10-18
+
+### Added
+- **Excluded file types (YANC fork).** A new "File type exclusions" setting takes a comma-separated
+  list such as `js, exe, *.dmg` and keeps matching files out of the sync in both directions.
+  Matching is case-insensitive and by suffix, so `*.JS` and `js` are the same entry and `tar.gz`
+  works as a compound suffix. Files already uploaded or downloaded when an entry is added are left
+  in place, never deleted — the remote-deletion guard consults the same predicate. Empty by
+  default (sync everything). Hidden files such as `.env` are not treated as having an extension.
+
+## [1.1.8] - 2026-10-18
+
+### Added
+- **Extension-based server cleanup (YANC fork):** a new "Delete excluded types from server" toggle in the
+  File type exclusions group. When ON and `excludedExtensions` is non-empty, files on the remote server
+  whose extension matches the exclusion list are deleted during sync, so excluded file types (e.g. `*.js`)
+  stop accumulating on the server and drifting between clients. Local copies are never touched.
+- **Sync-only folders (YANC fork):** a new "Sync only folders" group that lets you restrict syncing to a
+  whitelist of vault folders instead of the whole vault. Empty = sync everything (default); non-empty =
+  only files under those folders are synced in either direction. Hard exclusions (dotfolders, community
+  plugins, plugin state) and the existing "Excluded folders" blacklist still take precedence.
 
 ### Fixed
 - Plugin review lint: the login-URL input in the handover modal is now styled via a CSS class

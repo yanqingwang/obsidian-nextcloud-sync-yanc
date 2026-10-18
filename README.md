@@ -48,10 +48,11 @@ This plugin is still young and some behaviour can be rough around the edges. **P
 
 ---
 
-## What's new in this release (1.1.7)
+## What's new in this release (1.1.8)
 
+- **Extension-based server cleanup:** a new "Delete excluded types from server" toggle. When ON, files on the server whose extension is in your excluded-types list (e.g. `*.js`) are deleted during sync — so excluded file types stop accumulating on the server and drifting between clients. Local files are never touched.
+- **Sync only folders:** a new "Sync only folders" whitelist. Add vault folders to it and only files under those folders are synced (both directions); everything else is skipped. Empty = sync the whole vault. Hard exclusions and the existing "Excluded folders" blacklist still take precedence.
 - **Fixed: on mobile, the login URL could silently never appear** — the handover UI depended on `window.open`'s return value, which some mobile webviews (HarmonyOS) get wrong. Mobile now always shows the handover modal, **and** the one-time login URL stays parked in a selectable "Login URL — waiting for approval" row (with a **Copy URL** button) below the login button until the flow ends, so you can copy it at any time — even after switching apps. Requires Obsidian `1.13.0` or newer.
-- 1.1.7 also fixes a plugin-review lint error (inline style moved to a CSS class); no behavior changes.
 
 ## What's new in 1.1.5
 

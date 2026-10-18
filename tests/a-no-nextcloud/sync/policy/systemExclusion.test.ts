@@ -82,8 +82,42 @@ describe('isSystemExcluded — the user\'s excluded folders', () => {
   });
 });
 
-describe('isSystemExcluded — the config folder', () => {
-  const underConfig = { isUnderConfigDir: (p: string) => p.startsWith('.obsidian') };
+describe('isSystemExcluded — the YANC extension filter', () => {
+  it('excludes matching extensions anywhere in the vault', () => {
+    const c = ctx({ excludedExtensions: ['js', 'exe'] });
+    expect(isSystemExcluded('scripts/app.js', c)).toBe(true);
+    expect(isSystemExcluded('tools/setup.exe', c)).toBe(true);
+    expect(isSystemExcluded('notes/app.js.md', c)).toBe(false);
+    expect(isSystemExcluded('notes/a.md', c)).toBe(false);
+  });
+
+  it('is case-insensitive and tolerates the forms users type', () => {
+    expect(isSystemExcluded('A/B.JS', ctx({ excludedExtensions: ['js'] }))).toBe(true);
+    expect(isSystemExcluded('a.js', ctx({ excludedExtensions: ['*.JS'] }))).toBe(true);
+  });
+
+  it('does not read a dotfile as an extension', () => {
+    // `.env` is hidden-file content; listing "env" must not become a second hidden-file rule.
+    expect(isSystemExcluded('.env', ctx({ excludedExtensions: ['env'] }))).toBe(false);
+  });
+
+  it('excludes nothing when the field is absent — pre-fork data.json still loads', () => {
+    expect(isSystemExcluded('a.js', ctx({ excludedExtensions: undefined }))).toBe(false);
+  });
+
+  it('is additive on top of the folder list, and wins over a config category that includes the path', () => {
+    expect(isSystemExcluded('Archive/old.js', ctx({
+      excludedFolders: ['Archive'], excludedExtensions: ['js'],
+    }))).toBe(true);
+    expect(isSystemExcluded('.obsidian/bookmarks.json', ctx({
+      excludedExtensions: ['json'],
+      isUnderConfigDir: (p) => p.startsWith('.obsidian/'),
+      isConfigPathIncluded: () => true,
+    }))).toBe(true);
+  });
+});
+
+describe('isSystemExcluded — the config folder', () => {  const underConfig = { isUnderConfigDir: (p: string) => p.startsWith('.obsidian') };
 
   it('excludes a config path that no enabled category includes', () => {
     expect(isSystemExcluded('.obsidian/workspace.json', ctx({

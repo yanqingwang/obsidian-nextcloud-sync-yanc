@@ -73,13 +73,15 @@ const BASELINE: { heading: string | null; rows: string[] }[] = [
   },
   // YANC fork adds the two hidden-content toggles (baseline extends upstream's here on purpose).
   { heading: 'Excluded folders', rows: ['Excluded folders', 'Exclude hidden files', 'Exclude dotfolders', 'Add excluded folder'] },
+  // YANC fork: extension filter (e.g. "never sync *.js"), a fork-only section.
+  { heading: 'File type exclusions', rows: ['Excluded file types'] },
   { heading: 'Config folder (.obsidian)', rows: ['Sync config folder'] },
   { heading: 'Debug', rows: ['Enable logging (troubleshooting)'] },
   { heading: 'Advanced (use with caution)', rows: ['Mass-delete safety limit'] },
   { heading: 'Maintenance', rows: ['Reset vault index', 'Mirror from remote', 'Last session summary'] },
 ];
 
-const STATIC_ROW_COUNT = BASELINE.reduce((n, s) => n + s.rows.length, 0); // 30 (27 upstream + "Test connection" + 2 YANC toggles)
+const STATIC_ROW_COUNT = BASELINE.reduce((n, s) => n + s.rows.length, 0); // 31 (27 upstream + "Test connection" + 2 YANC toggles + Excluded file types)
 
 function makeHost(over: Partial<SettingDefinitionsHost> = {}): SettingDefinitionsHost {
   return {
@@ -96,14 +98,17 @@ function makeHost(over: Partial<SettingDefinitionsHost> = {}): SettingDefinition
     resetVaultIndex: () => undefined,
     openSyncStatus: () => undefined,
     startLoginFlow: () => undefined,
+    pendingLoginUrl: () => null,
     addExcludedFolder: () => undefined,
     removeExcludedFolder: () => undefined,
     renderAppPassword: () => undefined,
+    renderLoginUrl: () => undefined,
     renderNumberSlider: () => undefined,
     renderReadOnly: () => undefined,
     renderNotice: () => undefined,
     renderExtensionList: () => undefined,
     renderAddExcludedFolder: () => undefined,
+    renderExcludedExtensions: () => undefined,
     ...over,
   };
 }
@@ -296,7 +301,12 @@ describe('[SPEC:DSD-4] search visibility is precise', () => {
 
   it('attaches aliases only to real settings', () => {
     const baselineNames = new Set(BASELINE.flatMap((s) => s.rows));
-    const aliased = rowsOf(buildSettingDefinitions(makeHost())).filter((r) => r.aliases?.length);
+    // Decorations (banners, the pending-login-URL row) are not settings; they may carry aliases so
+    // the search index can surface them, which is why they are filtered out here exactly as
+    // settingRowsIn() does for the structure assertions.
+    const aliased = settingRowsIn(buildSettingDefinitions(makeHost()))
+      .map((f) => f.row)
+      .filter((r) => r.aliases?.length);
     expect(aliased.length).toBeGreaterThanOrEqual(10);
     expect(aliased.filter((r) => !baselineNames.has(r.name)).map((r) => r.name)).toEqual([]);
   });

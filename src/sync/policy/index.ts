@@ -15,6 +15,7 @@
 import { FileState } from '../../types';
 import { SIGNATURE_SAFETY_WINDOW_MS } from '../../util/limits';
 import { isUnderExcludedFolder, HARD_EXCLUDED_FOLDERS, isHiddenFile, isUnderDotFolder } from '../../util/excludedFolders';
+import { isExcludedExtension } from '../../util/excludedExtensions';
 import { isSyncTmpPath } from '../../data/LocalAdapter';
 import { DIR_BREAKER_REPORT_FILENAME, FILE_BREAKER_REPORT_FILENAME } from '../../ui/breakerReport';
 
@@ -92,6 +93,17 @@ export function isTextEligible(path: string, autoMergeFileTypes: readonly string
 export interface SystemExclusionContext {
   /** The user's excluded-folder list (feature 027). */
   excludedFolders: readonly string[];
+  /**
+   * (YANC fork) When non-empty, only folders under these paths are synced — the inverse of
+   * {@link excludedFolders}. Empty ⇒ sync the whole vault. Applied after hard/user exclusions and
+   * only to ordinary vault files (config-folder paths are handled separately below).
+   */
+  syncOnlyFolders?: readonly string[];
+  /**
+   * (YANC fork) Extensions never synced, lowercase without a leading dot. Optional: callers built
+   * from pre-fork settings omit it, and an absent list must exclude nothing.
+   */
+  excludedExtensions?: readonly string[];
   /** Whether the path lives under the Obsidian config folder. */
   isUnderConfigDir(path: string): boolean;
   /** Whether an enabled config-sync category includes this config-folder path. */
@@ -134,6 +146,11 @@ export function isSystemExcluded(path: string, ctx: SystemExclusionContext): boo
   // path before the config-folder logic so it covers ordinary vault files too. This is an
   // additive layer on top of the hard exclusions above — those always take precedence.
   if (isUnderExcludedFolder(path, ctx.excludedFolders)) return true;
+  // (YANC fork) User-managed extension filter: "never sync *.js". Basename suffix match,
+  // case-insensitive, applied to every path before the config-folder logic so it can also drop
+  // config files (e.g. `json`). Files already present on either side are NOT deleted — the
+  // deletion guard consults this same predicate and therefore skips them.
+  if (isExcludedExtension(path, ctx.excludedExtensions)) return true;
   // (YANC fork) Hidden-file exclusion (basename starts with "."): `.env`, `.gitignore`,
   // `.DS_Store`, … Independent of the folder rule below — a hidden file inside an ordinary
   // folder is still excluded. ON by default; the engine resolves the saved setting with `?? true`.
@@ -143,6 +160,12 @@ export function isSystemExcluded(path: string, ctx: SystemExclusionContext): boo
   // hard exclusion above to ALL dotfolders. ON by default, so dot content stays device-local out
   // of the box; while it is on, the config-folder rules below are unreachable for dot paths.
   if ((ctx.excludeDotFolders ?? true) && isUnderDotFolder(path)) return true;
+  // (YANC fork) Sync-only whitelist: when non-empty, only ordinary vault files under these folders
+  // are synced. Applied after all exclusions above (so a hard/excluded folder is never rescued by
+  // being in the whitelist) and before the config-folder rules (which govern .obsidian separately).
+  if (!ctx.isUnderConfigDir(path) && ctx.syncOnlyFolders && ctx.syncOnlyFolders.length > 0) {
+    if (!isUnderExcludedFolder(path, ctx.syncOnlyFolders)) return true;
+  }
   // Ordinary vault files (outside the config folder) are never system-excluded.
   if (!ctx.isUnderConfigDir(path)) return false;
   // Inside the config folder: excluded unless an enabled config-sync category includes it.

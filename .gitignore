@@ -15,6 +15,7 @@ build/
 
 # Tests
 coverage/
+.jest-cache/
 
 # Environment variables / logs
 .env

@@ -167,6 +167,29 @@ export interface DavSyncSettings {
    */
   excludedFolders: string[];
   /**
+   * Vault-relative folder paths that are the ONLY ones synced (YANC fork). Empty = sync the whole
+   * vault (default). When non-empty, only files under these folders are synced in either direction;
+   * everything else is treated as excluded. Folder-prefix match at a folder boundary. Hard
+   * exclusions (dotfolders, community plugins, plugin state) and {@link excludedFolders} still take
+   * precedence, so a folder must be in this list AND not excluded to sync.
+   */
+  syncOnlyFolders: string[];
+  /**
+   * File extensions that are never synced (YANC fork), stored lowercase without a leading dot:
+   * `['js', 'exe']`, compound suffixes such as `'tar.gz'` included. Matched case-insensitively
+   * against the basename, in BOTH directions — a matching file is neither uploaded nor downloaded,
+   * and the remote-deletion guard skips it, so existing copies are left in place rather than
+   * deleted. Empty by default (sync everything).
+   */
+  excludedExtensions: string[];
+  /**
+   * When ON, files matching {@link excludedExtensions} that already exist on the remote server are
+   * deleted from the server during sync, so excluded file types don't accumulate on the server and
+   * drift between clients. Local copies are never touched. OFF by default (skip, don't delete).
+   * (YANC fork.)
+   */
+  purgeExcludedExtensionsRemote: boolean;
+  /**
    * When ON, files whose name starts with "." (hidden files, e.g. `.env`, `.gitignore`,
    * `.DS_Store`) are never synced — neither uploaded nor downloaded. ON by default; turn OFF
    * to sync hidden files. Additive on top of the permanent hard exclusions. (YANC fork.)
@@ -246,6 +269,12 @@ export const DEFAULT_SETTINGS: DavSyncSettings = {
   autoMergeFileStrategy: 'merge',
   otherFileStrategy: 'latest-mtime',
   excludedFolders: [],
+  // YANC fork: empty = sync the whole vault; non-empty restricts sync to those folders only.
+  syncOnlyFolders: [],
+  // YANC fork: extension filter is opt-in and empty out of the box (sync everything).
+  excludedExtensions: [],
+  // YANC fork: by default excluded extensions are skipped, not deleted from the server.
+  purgeExcludedExtensionsRemote: false,
   // YANC fork: hidden files and dotfolders stay device-local out of the box.
   excludeHiddenFiles: true,
   excludeDotFolders: true,

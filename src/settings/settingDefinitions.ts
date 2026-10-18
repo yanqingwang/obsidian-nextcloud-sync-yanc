@@ -70,6 +70,8 @@ export interface SettingDefinitionsHost {
   testConnection(): unknown;
   addExcludedFolder(path: string): unknown;
   removeExcludedFolder(path: string): unknown;
+  addSyncOnlyFolder(path: string): unknown;
+  removeSyncOnlyFolder(path: string): unknown;
 
   /** Draws the SecretComponent row (no declarative equivalent — see the header). */
   renderAppPassword(setting: Setting): unknown;
@@ -85,6 +87,10 @@ export interface SettingDefinitionsHost {
   renderExtensionList(setting: Setting): unknown;
   /** Draws the folder picker that appends to the excluded list. */
   renderAddExcludedFolder(setting: Setting): unknown;
+  /** Draws the folder picker that appends to the sync-only whitelist. */
+  renderAddSyncOnlyFolder(setting: Setting): unknown;
+  /** Draws the comma-separated excluded-extension field (string[] storage). */
+  renderExcludedExtensions(setting: Setting): unknown;
 }
 
 export interface NumberSliderOptions {
@@ -137,6 +143,7 @@ export const RENDER_ONLY_ROWS = {
     'networkConcurrency',
     'maxFileSizeMB',
     'excludedFolders',         // list plus an add row with its own folder picker
+    'excludedExtensions',      // comma-separated field; needs a parse/format round-trip
     'autoMergeFileTypes',      // string[] shown comma-joined; needs a parse/format round-trip
   ] as (keyof DavSyncSettings)[],
 } as const;
@@ -153,8 +160,9 @@ const CONFLICT_STRATEGY_OPTIONS = {
  *
  * Called on every render (obsidian.d.ts:6577-6583), which is what lets the row set be dynamic:
  * one row per excluded folder, and two config-category rows only while the master toggle is on.
- * The count is therefore `27 + excludedFolders.length + (syncConfigFolder ? 2 : 0)` — not a
+ * The count is therefore `31 + excludedFolders.length + (syncConfigFolder ? 2 : 0)` — not a
  * constant, a fact that three separate attempts to count the old implementation got wrong.
+ * (31 = 27 upstream + Test connection + 2 YANC toggles + Excluded file types.)
  */
 export function buildSettingDefinitions(host: SettingDefinitionsHost): SettingDefinitionItem[] {
   return [
@@ -163,6 +171,8 @@ export function buildSettingDefinitions(host: SettingDefinitionsHost): SettingDe
     syncGroup(host),
     conflictGroup(host),
     excludedFoldersGroup(host),
+    syncOnlyFoldersGroup(host),
+    excludedTypesGroup(host),
     configFolderGroup(host),
     debugGroup(host),
     advancedGroup(host),
@@ -487,6 +497,62 @@ function excludedFoldersGroup(host: SettingDefinitionsHost): SettingDefinitionGr
     render: (setting: Setting) => host.renderAddExcludedFolder(setting),
   } as SettingGroupItem);
   return group('Excluded folders', items);
+}
+
+// ── Section 4b: Excluded file types (YANC fork) ───────────────────────────────
+
+/**
+ * Extension filter. Deliberately a `render` row: the declarative control set has no list type, and
+ * the stored value is `string[]` while the field is comma-separated text, so it needs the same
+ * parse/format round-trip as Auto merge file types.
+ */
+function excludedTypesGroup(host: SettingDefinitionsHost): SettingDefinitionGroup {
+  return group('File type exclusions', [
+    {
+      name: 'Excluded file types',
+      desc: 'File extensions that are never synced, comma-separated — for example "js, exe, *.dmg". A leading dot or "*." is optional and matching is case-insensitive, so "*.JS" and "js" are the same entry. Applies in both directions; files already uploaded or downloaded are left in place, not deleted. Empty = sync every file type. (YANC fork.)',
+      aliases: ['extension', 'extensions', 'file type', 'suffix', 'ignore', 'exclude', 'skip', 'js', 'exe'],
+      render: (setting: Setting) => host.renderExcludedExtensions(setting),
+    } as SettingGroupItem,
+    {
+      name: 'Delete excluded types from server',
+      desc: 'When ON, files with an excluded extension that already exist on the server are deleted from it during sync, so excluded file types do not accumulate on the server and drift between clients. Local copies are never touched. Requires "Excluded file types" above to be non-empty. (YANC fork.)',
+      aliases: ['purge', 'cleanup', 'delete', 'remove', 'server'],
+      control: { type: 'toggle', key: 'purgeExcludedExtensionsRemote' },
+    },
+  ]);
+}
+
+// ── Section 4c: Sync only folders (YANC fork) ────────────────────────────────
+
+function syncOnlyFoldersGroup(host: SettingDefinitionsHost): SettingDefinitionGroup {
+  const only = host.settings.syncOnlyFolders ?? [];
+  const items: SettingGroupItem[] = [
+    {
+      name: 'Sync only these folders',
+      desc: only.length
+        ? `Only files under ${only.length} folder(s) are synced — everything else outside them is skipped. Hard exclusions (dotfolders, community plugins, plugin state) and "Excluded folders" still take precedence.`
+        : 'Empty = sync the whole vault. Add folders below to restrict syncing to them only — files outside these folders are skipped in both directions. This is the inverse of "Excluded folders".',
+      aliases: ['whitelist', 'only', 'include', 'folder', 'restrict'],
+      render: (setting: Setting) =>
+        host.renderReadOnly(setting, only.length ? `${only.length} synced` : 'All folders'),
+    } as SettingGroupItem,
+  ];
+  for (const folder of only) {
+    items.push({
+      name: folder,
+      desc: 'Only this folder is synced.',
+      searchable: false,
+      action: () => { void host.removeSyncOnlyFolder(folder); },
+    });
+  }
+  items.push({
+    name: 'Add sync-only folder',
+    desc: 'Choose a vault folder to include in syncing. Start typing to pick from matching folders. The path is added to the list above.',
+    aliases: ['whitelist', 'only', 'include', 'add folder'],
+    render: (setting: Setting) => host.renderAddSyncOnlyFolder(setting),
+  } as SettingGroupItem);
+  return group('Sync only folders', items);
 }
 
 // ── Section 5: Config folder ──────────────────────────────────────────────────

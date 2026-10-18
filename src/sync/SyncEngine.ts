@@ -33,6 +33,7 @@ import { SyncJournal } from './session/SyncJournal';
 import { MergeBaseRecorder } from './session/MergeBaseRecorder';
 import { withLocalSignature } from '../data/localSignature';
 import { TransferService } from './transfer/TransferService';
+import { isExcludedExtension } from '../util/excludedExtensions';
 import { VersionService } from './versions/VersionService';
 import { remoteIdOf } from './remoteIdentity';
 import { DeletionService } from './deletion/DeletionService';
@@ -1011,6 +1012,24 @@ export class SyncEngine {
 
     // Process each remote file
     const eligible = remoteFiles.filter(f => !this.isSystemExcluded(f.path));
+
+    // (YANC fork) Optional cleanup: when purgeExcludedExtensionsRemote is ON, remote files whose
+    // extension is in excludedExtensions are deleted from the server. They were dropped from
+    // `eligible` above (isSystemExcluded skips them), so they would otherwise sit on the server
+    // forever and drift between clients. Local copies are never touched.
+    if ((this.opts.settings?.purgeExcludedExtensionsRemote ?? false) && this.client) {
+      const extensions = this.opts.settings.excludedExtensions ?? [];
+      for (const f of remoteFiles) {
+        if (!isExcludedExtension(f.path, extensions)) continue;
+        try {
+          await this.client.deleteFile(f.path, '');
+          void this.opts.logger?.log(`purge: deleted excluded extension file from remote → ${f.path}`);
+        } catch (err) {
+          void this.opts.logger?.log(`purge: failed to delete ${f.path} — ${(err as Error).message}`, 'error');
+        }
+      }
+    }
+
     this.syncProgress = { processed: 0, total: eligible.length };
     if (eligible.length > 0) this.opts.statusBar.setProgress(0, eligible.length);
     // Bounded-parallel (P1-A): each remote file is processed by one worker; uploads to the same
@@ -1742,6 +1761,8 @@ export class SyncEngine {
   private isSystemExcluded(path: string): boolean {
     return isSystemExcludedPure(path, {
       excludedFolders: this.opts.settings?.excludedFolders ?? [],
+      syncOnlyFolders: this.opts.settings?.syncOnlyFolders ?? [],
+      excludedExtensions: this.opts.settings?.excludedExtensions ?? [],
       isUnderConfigDir: (p) => this.configSync.isUnderConfigDir(p),
       isConfigPathIncluded: (p) => this.configSync.isIncluded(p),
       isActiveLogFile: this.opts.isActiveLogFile,

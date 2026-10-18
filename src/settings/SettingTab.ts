@@ -9,6 +9,7 @@ import { LoginUrlModal } from '../ui/LoginUrlModal';
 import { checkReachability, checkWebdavBase, basicAuthHeader } from '../network/ConnectionTester';
 import { verifyAppPassword, AppPasswordRejectedError } from '../auth/verifyCredentials';
 import { normalizeExcludedFolder } from '../util/excludedFolders';
+import { parseExcludedExtensions, formatExcludedExtensions } from '../util/excludedExtensions';
 import { normalizeNumericInput } from '../util/numericInput';
 import {
   buildSettingDefinitions,
@@ -127,6 +128,23 @@ export class NextcloudSyncSettingTab extends PluginSettingTab implements Setting
     this.update();
   }
 
+  async addSyncOnlyFolder(raw: string): Promise<void> {
+    const norm = normalizeExcludedFolder(raw);
+    if (!norm) { new Notice('Enter a folder path inside the vault.'); return; }
+    const list = this.plugin.settings.syncOnlyFolders ?? [];
+    if (list.includes(norm)) { new Notice(`"${norm}" is already in the sync-only list.`); return; }
+    this.plugin.settings.syncOnlyFolders = [...list, norm];
+    await this.plugin.saveSettings();
+    this.update();
+  }
+
+  async removeSyncOnlyFolder(folder: string): Promise<void> {
+    this.plugin.settings.syncOnlyFolders =
+      (this.plugin.settings.syncOnlyFolders ?? []).filter((f) => f !== folder);
+    await this.plugin.saveSettings();
+    this.update();
+  }
+
   // ── SettingDefinitionsHost: rows that draw themselves ──────────────────────
 
   /** Banner, help paragraph, divider or caution block. Carries no control. */
@@ -207,6 +225,22 @@ export class NextcloudSyncSettingTab extends PluginSettingTab implements Setting
   }
 
   /**
+   * Comma-separated excluded-extension field (YANC fork). Same round-trip as the merge-type list:
+   * the stored value is `string[]`, the field is text. Parsing on every keystroke is safe because
+   * invalid fragments are dropped instead of aborting the list, so a half-typed "j" never wipes the
+   * entries after it.
+   */
+  renderExcludedExtensions(setting: Setting): void {
+    setting.addText((text) => text
+      .setPlaceholder('js, exe, *.dmg')
+      .setValue(formatExcludedExtensions(this.plugin.settings.excludedExtensions))
+      .onChange(async (value) => {
+        this.plugin.settings.excludedExtensions = parseExcludedExtensions(value);
+        await this.plugin.saveSettings();
+      }));
+  }
+
+  /**
    * Folder picker that appends to the excluded list.
    *
    * Uses the built-in folder suggester's filter rather than the plugin's former custom
@@ -223,6 +257,18 @@ export class NextcloudSyncSettingTab extends PluginSettingTab implements Setting
       .setButtonText('Add')
       .setCta()
       .onClick(() => { void this.addExcludedFolder(input?.getValue() ?? ''); }));
+  }
+
+  renderAddSyncOnlyFolder(setting: Setting): void {
+    let input: TextComponent | null = null;
+    setting.addText((text) => {
+      input = text;
+      text.setPlaceholder('Example: work notes');
+    });
+    setting.addButton((btn) => btn
+      .setButtonText('Add')
+      .setCta()
+      .onClick(() => { void this.addSyncOnlyFolder(input?.getValue() ?? ''); }));
   }
 
   /**
