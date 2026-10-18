@@ -483,6 +483,18 @@ function excludedFoldersGroup(host: SettingDefinitionsHost): SettingDefinitionGr
       aliases: ['hidden folders', 'dotfolders', 'dot folders', 'config folder'],
       control: { type: 'toggle', key: 'excludeDotFolders' },
     },
+    {
+      name: 'Exclude underscore files',
+      desc: 'Never sync files whose name starts with "_" (for example _draft.md, _template.canvas). Unlike dotfiles, underscore-prefixed names are often user content (templates, drafts), so this is off by default — turn it on to keep them device-local. (YANC fork.)',
+      aliases: ['underscore', 'underscore files', '_ file', 'draft', 'template'],
+      control: { type: 'toggle', key: 'excludeUnderscoreFiles' },
+    },
+    {
+      name: 'Exclude underscore folders',
+      desc: 'Never sync folders whose name starts with "_" (for example _inbox, _archive) and everything inside them. Off by default (opt-in). (YANC fork.)',
+      aliases: ['underscore folder', '_ folder', '_inbox', '_archive'],
+      control: { type: 'toggle', key: 'excludeUnderscoreFolders' },
+    },
   ];
   // One row per excluded folder. Dynamic by design: getSettingDefinitions() runs on every render.
   for (const folder of excluded) {

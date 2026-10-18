@@ -14,7 +14,7 @@
 // logic below can be exercised at its boundaries at all.
 import { FileState } from '../../types';
 import { SIGNATURE_SAFETY_WINDOW_MS } from '../../util/limits';
-import { isUnderExcludedFolder, HARD_EXCLUDED_FOLDERS, isHiddenFile, isUnderDotFolder } from '../../util/excludedFolders';
+import { isUnderExcludedFolder, HARD_EXCLUDED_FOLDERS, isHiddenFile, isUnderDotFolder, isUnderscoreFile, isUnderUnderscoreFolder } from '../../util/excludedFolders';
 import { isExcludedExtension } from '../../util/excludedExtensions';
 import { isSyncTmpPath } from '../../data/LocalAdapter';
 import { DIR_BREAKER_REPORT_FILENAME, FILE_BREAKER_REPORT_FILENAME } from '../../ui/breakerReport';
@@ -114,6 +114,10 @@ export interface SystemExclusionContext {
   excludeHiddenFiles?: boolean;
   /** (YANC fork) When ON, paths under any dotfolder (any segment starting with ".") are never synced. Default true. */
   excludeDotFolders?: boolean;
+  /** (YANC fork) When ON, files whose basename starts with "_" are never synced. Default false. */
+  excludeUnderscoreFiles?: boolean;
+  /** (YANC fork) When ON, paths under any folder whose name starts with "_" are never synced. Default false. */
+  excludeUnderscoreFolders?: boolean;
 }
 
 /**
@@ -160,6 +164,12 @@ export function isSystemExcluded(path: string, ctx: SystemExclusionContext): boo
   // hard exclusion above to ALL dotfolders. ON by default, so dot content stays device-local out
   // of the box; while it is on, the config-folder rules below are unreachable for dot paths.
   if ((ctx.excludeDotFolders ?? true) && isUnderDotFolder(path)) return true;
+  // (YANC fork) Underscore-prefixed file/folder exclusion. OFF by default (opt-in): unlike dot
+  // names, underscore-prefixed names are often user content (templates, drafts), so they sync
+  // unless the user explicitly opts out. File rule is independent of the folder rule — a `_draft.md`
+  // inside an ordinary folder is excluded when excludeUnderscoreFiles is ON.
+  if ((ctx.excludeUnderscoreFiles ?? false) && isUnderscoreFile(path)) return true;
+  if ((ctx.excludeUnderscoreFolders ?? false) && isUnderUnderscoreFolder(path)) return true;
   // (YANC fork) Sync-only whitelist: when non-empty, only ordinary vault files under these folders
   // are synced. Applied after all exclusions above (so a hard/excluded folder is never rescued by
   // being in the whitelist) and before the config-folder rules (which govern .obsidian separately).

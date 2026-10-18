@@ -11,6 +11,15 @@ and folded into the next stable entry.
 
 > A Japanese translation is available at [`CHANGELOG.ja.md`](CHANGELOG.ja.md).
 
+## [1.2.2] - 2026-10-18
+
+### Added
+- **Exclude underscore-prefixed files and folders (YANC fork).** Two new toggles in the
+  Excluded folders group: "Exclude underscore files" drops files whose name starts with `_`
+  (e.g. `_draft.md`, `_template.canvas`); "Exclude underscore folders" drops folders whose name
+  starts with `_` (e.g. `_inbox`, `_archive`) and everything beneath them. Both are OFF by default
+  — unlike dotfiles, underscore-prefixed names are often user content, so exclusion is opt-in.
+
 ## [1.2.1] - 2026-10-18
 
 ### Fixed

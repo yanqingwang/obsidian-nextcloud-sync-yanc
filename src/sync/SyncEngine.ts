@@ -1874,6 +1874,8 @@ export class SyncEngine {
       isActiveLogFile: this.opts.isActiveLogFile,
       excludeHiddenFiles: this.opts.settings?.excludeHiddenFiles ?? true,
       excludeDotFolders: this.opts.settings?.excludeDotFolders ?? true,
+      excludeUnderscoreFiles: this.opts.settings?.excludeUnderscoreFiles ?? false,
+      excludeUnderscoreFolders: this.opts.settings?.excludeUnderscoreFolders ?? false,
     });
   }
 }

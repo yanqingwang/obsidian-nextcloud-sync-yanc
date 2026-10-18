@@ -46,6 +46,24 @@ export function isUnderDotFolder(path: string): boolean {
 }
 
 /**
+ * True when `path`'s basename starts with "_" — e.g. `_draft.md`, `_template.canvas`.
+ * Mirror of {@link isHiddenFile} for underscore-prefixed names. (YANC fork.)
+ */
+export function isUnderscoreFile(path: string): boolean {
+  const base = path.split('/').pop() ?? '';
+  return base.startsWith('_');
+}
+
+/**
+ * True when any folder segment of `path` starts with "_" — e.g. `_inbox/note.md`,
+ * `Notes/_archive/x.md`. Mirror of {@link isUnderDotFolder} for underscore-prefixed folders.
+ * (YANC fork.)
+ */
+export function isUnderUnderscoreFolder(path: string): boolean {
+  return path.split('/').some(seg => seg.length > 0 && seg.startsWith('_'));
+}
+
+/**
  * Normalize a user-entered folder path into the canonical vault-relative form used for
  * storage and comparison, or return null when the input denotes the whole vault (and
  * therefore must be rejected, since excluding the root would stop all syncing).

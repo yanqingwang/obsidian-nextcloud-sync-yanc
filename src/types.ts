@@ -220,6 +220,18 @@ export interface DavSyncSettings {
    */
   excludeDotFolders: boolean;
   /**
+   * When ON, files whose name starts with "_" (e.g. `_draft.md`, `_template.canvas`) are never
+   * synced — neither uploaded nor downloaded. OFF by default: unlike dotfiles, underscore-prefixed
+   * names are often user content (templates, drafts), so exclusion is opt-in. (YANC fork.)
+   */
+  excludeUnderscoreFiles: boolean;
+  /**
+   * When ON, folders whose name starts with "_" (e.g. `_inbox`, `_archive`) and everything beneath
+   * them are never synced. OFF by default (opt-in, same rationale as excludeUnderscoreFiles).
+   * (YANC fork.)
+   */
+  excludeUnderscoreFolders: boolean;
+  /**
    * How to resolve a conflict on a markdown file's frontmatter block, INDEPENDENTLY of the body
    * (feature 047). Same five strategies as `autoMergeFileStrategy`. `merge` = semantic merge (arrays
    * base-aware set-merge, scalars/objects/parse-failure tie-broken by latest-mtime); the other four
@@ -298,6 +310,9 @@ export const DEFAULT_SETTINGS: DavSyncSettings = {
   // YANC fork: hidden files and dotfolders stay device-local out of the box.
   excludeHiddenFiles: true,
   excludeDotFolders: true,
+  // YANC fork: underscore-prefixed files/folders are opt-in (often user content like templates).
+  excludeUnderscoreFiles: false,
+  excludeUnderscoreFolders: false,
   frontmatterStrategy: 'merge',
   // Feature 048: default keeps the 047 behaviour — a real merge conflict writes both-side markers.
   conflictStrategy: 'conflict-markers',
