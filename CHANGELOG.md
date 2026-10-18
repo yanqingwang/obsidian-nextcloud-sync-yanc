@@ -18,8 +18,26 @@ and folded into the next stable entry.
   list such as `js, exe, *.dmg` and keeps matching files out of the sync in both directions.
   Matching is case-insensitive and by suffix, so `*.JS` and `js` are the same entry and `tar.gz`
   works as a compound suffix. Files already uploaded or downloaded when an entry is added are left
-  in place, never deleted — the remote-deletion guard consults the same predicate. Empty by
-  default (sync everything). Hidden files such as `.env` are not treated as having an extension.
+  in place by default — the remote-deletion guard consults the same predicate. Empty by default
+  (sync everything). Hidden files such as `.env` are not treated as having an extension.
+- **Extension-based server cleanup (YANC fork):** a "Delete excluded types from server" toggle in the
+  File type exclusions group. When ON and `excludedExtensions` is non-empty, files on the remote
+  server whose extension matches the exclusion list are deleted during sync, so excluded file types
+  stop accumulating on the server and drifting between clients. Local copies are never touched.
+- **Sync only folders (YANC fork).** A whitelist of vault folders; when non-empty, only files inside
+  those folders are synced and everything else is skipped in both directions. Hard exclusions
+  (`.obsidian`, `.git`, plugin state, etc.) and the existing "Excluded folders" blacklist still take
+  precedence. Empty by default (sync the whole vault).
+- **Lazy attachment sync (YANC fork).** Files in configured attachment folders are indexed (their
+  remote identity is recorded) but never downloaded automatically. The bytes are fetched on demand
+  the moment you open a note that embeds them (`![[image.png]]`, `![](path)`), so a small vault can
+  reference a large remote attachment collection without pulling every file. New or modified local
+  attachments are still uploaded so they get backed up; deleting a local attachment does not remove
+  the remote copy. Off by default. The attachment-folder list accepts three forms:
+  - a plain folder name (e.g. `files`) — matches every directory with that name at any depth;
+  - a vault-relative path (e.g. `attachments/img`) — matches only that directory;
+  - the literal `@obsidian` — uses Obsidian's own attachment-folder setting (only when it is a fixed
+    vault path, not "same folder as note" or a per-note subfolder).
 
 ## [1.1.8] - 2026-10-18
 

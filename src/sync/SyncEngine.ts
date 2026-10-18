@@ -34,6 +34,7 @@ import { MergeBaseRecorder } from './session/MergeBaseRecorder';
 import { withLocalSignature } from '../data/localSignature';
 import { TransferService } from './transfer/TransferService';
 import { isExcludedExtension } from '../util/excludedExtensions';
+import { isLazyAttachmentPath, resolveObsidianAttachmentFolder } from '../util/lazyAttachments';
 import { VersionService } from './versions/VersionService';
 import { remoteIdOf } from './remoteIdentity';
 import { DeletionService } from './deletion/DeletionService';
@@ -1162,6 +1163,26 @@ export class SyncEngine {
     const localStat = await this.opts.localAdapter.stat(remote.path);
     const { remoteId, idType } = remoteIdOf(remote);
 
+    // (YANC fork) Lazy attachment: the file lives in a lazy-synced folder. When it has NO local copy,
+    // we only record its remote identity (so it can be downloaded on demand) and skip the rest —
+    // neither downloading it nor propagating a "local deletion" to the server (the remote copy is
+    // the source of truth for attachments). When a local copy DOES exist, fall through to normal
+    // sync so on-demand-fetched files stay up to date and local edits get uploaded.
+    if (this.isLazyAttachment(remote.path) && !localStat) {
+      this.opts.stateDB.setFile({
+        path: remote.path,
+        localHash: '',
+        remoteId,
+        idType,
+        size: remote.size,
+        mtime: remote.lastModified || 0,
+        remoteFileId: remote.fileId,
+        isConflicted: false,
+        remoteMtime: remote.lastModified,
+      });
+      return;
+    }
+
     const remoteChanged = !base || base.remoteId !== remoteId;
     let localChanged = false;
     let localHash = base?.localHash ?? '';
@@ -1751,6 +1772,89 @@ export class SyncEngine {
   /** @see RemoteListingSource.rebuildRemoteDirsFromState */
   private rebuildRemoteDirsFromState(): RemoteDirInfo[] {
     return this.remoteListing.rebuildRemoteDirsFromState();
+  }
+
+  /**
+   * True when `path` is inside a lazy-synced attachment folder (YANC fork). When true, the sync
+   * engine records the file's remote identity but does not download it automatically; the bytes
+   * are fetched on demand when a note embedding it is opened (see {@link fetchLazyAttachment}).
+   *
+   * Reads Obsidian's attachment-folder setting each call (cheap) so a changed setting takes effect
+   * without a reload. Returns false whenever lazy sync is off or the folder list is empty.
+   */
+  private isLazyAttachment(path: string): boolean {
+    const s = this.opts.settings;
+    if (!s?.lazySyncAttachments) return false;
+    const obsidianFolder = resolveObsidianAttachmentFolder(
+      (this.opts.app.vault as unknown as { config?: { attachmentFolderPath?: string } }).config?.attachmentFolderPath,
+    );
+    return isLazyAttachmentPath(path, s.lazyAttachmentFolders, obsidianFolder);
+  }
+
+  /**
+   * On-demand download of a lazy-synced attachment (YANC fork). Called from the file-open handler
+   * in main.ts when an opened note embeds a file that is indexed on the remote but absent locally.
+   *
+   * Fetches the bytes from the server, writes them locally, and updates the StateDB record so the
+   * next sync treats the file as converged (no re-download). Returns true on success, false when
+   * the path is not a tracked lazy attachment or the download failed.
+   */
+  async fetchLazyAttachment(path: string): Promise<boolean> {
+    if (!this.client) return false;
+    const base = this.opts.stateDB.getFile(path);
+    if (!base) return false; // not indexed
+    try {
+      const data = await this.client.downloadFile(path);
+      await this.opts.localAdapter.atomicWriteBinary(path, data);
+      const localHash = await sha256(data);
+      const stat = await this.opts.localAdapter.stat(path);
+      this.opts.stateDB.setFile({
+        ...base,
+        localHash,
+        localMtime: stat?.mtime,
+        localSize: stat?.size,
+        remoteMtime: base.remoteMtime,
+        isConflicted: false,
+      });
+      void this.opts.logger?.log(`lazy-fetch: downloaded attachment → ${path}`);
+      return true;
+    } catch (err) {
+      void this.opts.logger?.log(`lazy-fetch: FAILED ${path} — ${(err as Error).message}`, 'error');
+      return false;
+    }
+  }
+
+  /**
+   * Resolve an embed link (e.g. `image.png` or `attachments/image.png`) from an opened note to a
+   * tracked lazy-attachment remote path. Searches the StateDB for indexed lazy attachments whose
+   * path matches the link: exact path, suffix match for qualified links, or basename match for
+   * bare filenames. Returns null when nothing matches.
+   */
+  resolveLazyRemotePath(embedLink: string): string | null {
+    // Strip a heading/block suffix (`note#heading`) — those are not file embeds for our purpose.
+    const link = embedLink.split('#')[0].trim();
+    if (!link) return null;
+    const linkLower = link.toLowerCase();
+    const basename = (link.split('/').pop() ?? '').toLowerCase();
+    let suffixMatch: string | null = null;
+    for (const state of this.opts.stateDB.getAllFiles()) {
+      if (state.localHash) continue; // already local, not lazy
+      const p = state.path;
+      const pLower = p.toLowerCase();
+      if (pLower === linkLower) return p; // exact vault-relative match
+      if (link.includes('/')) {
+        if (pLower.endsWith('/' + linkLower)) return p;
+      } else {
+        // Bare filename: prefer exact basename match.
+        const pBase = (p.split('/').pop() ?? '').toLowerCase();
+        if (pBase === basename) return p;
+      }
+      // Keep a suffix match as a fallback (longest path wins — recorded below).
+      if (link.includes('/') && pLower.endsWith(linkLower) && (!suffixMatch || p.length > suffixMatch.length)) {
+        suffixMatch = p;
+      }
+    }
+    return suffixMatch;
   }
 
   /**

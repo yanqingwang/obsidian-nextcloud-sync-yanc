@@ -72,6 +72,8 @@ export interface SettingDefinitionsHost {
   removeExcludedFolder(path: string): unknown;
   addSyncOnlyFolder(path: string): unknown;
   removeSyncOnlyFolder(path: string): unknown;
+  addLazyAttachmentFolder(spec: string): unknown;
+  removeLazyAttachmentFolder(spec: string): unknown;
 
   /** Draws the SecretComponent row (no declarative equivalent — see the header). */
   renderAppPassword(setting: Setting): unknown;
@@ -89,6 +91,8 @@ export interface SettingDefinitionsHost {
   renderAddExcludedFolder(setting: Setting): unknown;
   /** Draws the folder picker that appends to the sync-only whitelist. */
   renderAddSyncOnlyFolder(setting: Setting): unknown;
+  /** Draws the text field that appends a lazy-attachment folder spec to the list. */
+  renderAddLazyAttachmentFolder(setting: Setting): unknown;
   /** Draws the comma-separated excluded-extension field (string[] storage). */
   renderExcludedExtensions(setting: Setting): unknown;
 }
@@ -173,6 +177,7 @@ export function buildSettingDefinitions(host: SettingDefinitionsHost): SettingDe
     excludedFoldersGroup(host),
     syncOnlyFoldersGroup(host),
     excludedTypesGroup(host),
+    lazyAttachmentGroup(host),
     configFolderGroup(host),
     debugGroup(host),
     advancedGroup(host),
@@ -553,6 +558,48 @@ function syncOnlyFoldersGroup(host: SettingDefinitionsHost): SettingDefinitionGr
     render: (setting: Setting) => host.renderAddSyncOnlyFolder(setting),
   } as SettingGroupItem);
   return group('Sync only folders', items);
+}
+
+// ── Section 4d: Lazy attachment sync (YANC fork) ─────────────────────────────
+
+/**
+ * Lazy attachment sync: files in attachment folders are indexed (remote identity recorded) but
+ * never downloaded automatically. The bytes are fetched on demand when a note that embeds them is
+ * opened. New/modified local attachments are still uploaded so they get backed up.
+ */
+function lazyAttachmentGroup(host: SettingDefinitionsHost): SettingDefinitionGroup {
+  const folders = host.settings.lazyAttachmentFolders ?? [];
+  const items: SettingGroupItem[] = [
+    {
+      name: 'Lazy sync attachments',
+      desc: 'When ON, files in the attachment folders below are indexed but not downloaded automatically; a missing attachment is fetched the moment you open a note that embeds it. New or modified local attachments are still uploaded so they are backed up. Off by default (sync attachments like any other file).',
+      aliases: ['lazy', 'attachment', 'attachments', 'image', 'on demand', 'download'],
+      control: { type: 'toggle', key: 'lazySyncAttachments' },
+    },
+    {
+      name: 'Attachment folders',
+      desc: folders.length
+        ? `${folders.length} folder spec(s) configured. A plain name (e.g. "files") matches every directory with that name at any depth; a path (e.g. "attachments/img") matches only that folder; the word @obsidian uses Obsidian\'s own attachment-folder setting.`
+        : 'None — lazy sync has no effect until you add a folder spec below.',
+      aliases: ['attachment folder', 'image folder', 'files folder'],
+      render: (setting: Setting) => host.renderReadOnly(setting, folders.length ? `${folders.length} spec(s)` : 'None'),
+    } as SettingGroupItem,
+  ];
+  for (const spec of folders) {
+    items.push({
+      name: spec,
+      desc: 'Lazy-synced attachment folder spec.',
+      searchable: false,
+      action: () => { void host.removeLazyAttachmentFolder(spec); },
+    });
+  }
+  items.push({
+    name: 'Add attachment folder',
+    desc: 'Add a folder spec. Plain name (e.g. "files") = every directory named "files" anywhere; a path (e.g. "attachments/img") = only that folder; "@obsidian" = Obsidian\'s configured attachment folder (only when it is a fixed path, not "same folder as note").',
+    aliases: ['add attachment', 'image', 'files', '@obsidian'],
+    render: (setting: Setting) => host.renderAddLazyAttachmentFolder(setting),
+  } as SettingGroupItem);
+  return group('Lazy attachment sync', items);
 }
 
 // ── Section 5: Config folder ──────────────────────────────────────────────────

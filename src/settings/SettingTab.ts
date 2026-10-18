@@ -145,6 +145,23 @@ export class NextcloudSyncSettingTab extends PluginSettingTab implements Setting
     this.update();
   }
 
+  async addLazyAttachmentFolder(raw: string): Promise<void> {
+    const spec = raw.trim();
+    if (!spec) { new Notice('Enter a folder name, vault path, or @obsidian.'); return; }
+    const list = this.plugin.settings.lazyAttachmentFolders ?? [];
+    if (list.includes(spec)) { new Notice(`"${spec}" is already in the list.`); return; }
+    this.plugin.settings.lazyAttachmentFolders = [...list, spec];
+    await this.plugin.saveSettings();
+    this.update();
+  }
+
+  async removeLazyAttachmentFolder(spec: string): Promise<void> {
+    this.plugin.settings.lazyAttachmentFolders =
+      (this.plugin.settings.lazyAttachmentFolders ?? []).filter((f) => f !== spec);
+    await this.plugin.saveSettings();
+    this.update();
+  }
+
   // ── SettingDefinitionsHost: rows that draw themselves ──────────────────────
 
   /** Banner, help paragraph, divider or caution block. Carries no control. */
@@ -269,6 +286,22 @@ export class NextcloudSyncSettingTab extends PluginSettingTab implements Setting
       .setButtonText('Add')
       .setCta()
       .onClick(() => { void this.addSyncOnlyFolder(input?.getValue() ?? ''); }));
+  }
+
+  /**
+   * Text field + Add button for a lazy-attachment folder spec. A spec can be a plain folder name
+   * (matches at any depth), a vault-relative path, or the literal `@obsidian`.
+   */
+  renderAddLazyAttachmentFolder(setting: Setting): void {
+    let input: TextComponent | null = null;
+    setting.addText((text) => {
+      input = text;
+      text.setPlaceholder('files  |  attachments/img  |  @obsidian');
+    });
+    setting.addButton((btn) => btn
+      .setButtonText('Add')
+      .setCta()
+      .onClick(() => { void this.addLazyAttachmentFolder(input?.getValue() ?? ''); }));
   }
 
   /**

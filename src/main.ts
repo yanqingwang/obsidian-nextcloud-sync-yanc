@@ -241,6 +241,14 @@ export default class ObsidianNextcloudsync extends Plugin {
         void this.syncEngine?.renameSingleFile(oldPath, file.path);
       }));
 
+      // (YANC fork) Lazy attachment sync: when a Markdown note is opened, scan its embeds and
+      // download any referenced attachment that is indexed on the remote but absent locally. This
+      // is what makes lazy sync feel transparent — the image appears as soon as the note does.
+      this.registerEvent(this.app.workspace.on('file-open', (file) => {
+        if (!this.settings.lazySyncAttachments || !file || !(file instanceof TFile) || file.extension !== 'md') return;
+        void this.fetchLazyAttachmentsForNote(file.path);
+      }));
+
       // Feature 079 (discussion #44): sync when the app comes back to the foreground.
       //
       // On mobile this is the only trigger that fires at all once the app has been left running —
@@ -484,6 +492,31 @@ export default class ObsidianNextcloudsync extends Plugin {
   /** Vault-relative path of this device's log file (shown to the user when logging is enabled). */
   logFilePath(): string {
     return debugLogPath(this.settings.logsFolder, this.hostToken());
+  }
+
+  /**
+   * (YANC fork) Download lazy-synced attachments embedded by the note at `notePath`. For each embed
+   * link in the note's metadata cache, if the target file is not already local but is indexed as a
+   * lazy attachment on the remote, fetch it on demand. Runs without blocking the UI; failures are
+   * logged but not surfaced (the image simply stays missing until the next attempt).
+   */
+  private async fetchLazyAttachmentsForNote(notePath: string): Promise<void> {
+    const engine = this.syncEngine;
+    if (!engine) return;
+    const file = this.app.vault.getFileByPath(notePath);
+    if (!file) return;
+    const cache = this.app.metadataCache.getFileCache(file);
+    const embeds = cache?.embeds ?? [];
+    if (embeds.length === 0) return;
+    let fetched = 0;
+    for (const embed of embeds) {
+      const existing = this.app.metadataCache.getFirstLinkpathDest(embed.link, notePath);
+      if (existing) continue; // already local
+      const remotePath = engine.resolveLazyRemotePath(embed.link);
+      if (!remotePath) continue; // not indexed as a lazy attachment
+      if (await engine.fetchLazyAttachment(remotePath)) fetched++;
+    }
+    if (fetched > 0) void this.logger.log(`lazy-fetch: downloaded ${fetched} attachment(s) for ${notePath}`);
   }
 
   /**

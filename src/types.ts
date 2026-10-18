@@ -190,6 +190,23 @@ export interface DavSyncSettings {
    */
   purgeExcludedExtensionsRemote: boolean;
   /**
+   * When ON, files in attachment folders are synced lazily (YANC fork): only their remote identity is
+   * recorded (indexed), and the actual bytes are downloaded on demand when a note that embeds them is
+   * opened. New/modified local attachments are still uploaded normally so they get backed up. OFF by
+   * default (sync attachments like any other file).
+   */
+  lazySyncAttachments: boolean;
+  /**
+   * Folder specs that define which directories hold lazy-synced attachments (YANC fork). Each entry
+   * is either:
+   * - a plain folder name (e.g. `files`) → matches any directory with that exact name at any depth;
+   * - a vault-relative path (contains `/`, e.g. `attachments/img`) → matches only that directory;
+   * - the literal `@obsidian` → uses Obsidian's configured attachment folder (only when it is a
+   *   fixed vault path, not "same folder as note" or a per-note subfolder).
+   * Empty = no folders are lazy-synced even when {@link lazySyncAttachments} is ON.
+   */
+  lazyAttachmentFolders: string[];
+  /**
    * When ON, files whose name starts with "." (hidden files, e.g. `.env`, `.gitignore`,
    * `.DS_Store`) are never synced — neither uploaded nor downloaded. ON by default; turn OFF
    * to sync hidden files. Additive on top of the permanent hard exclusions. (YANC fork.)
@@ -275,6 +292,9 @@ export const DEFAULT_SETTINGS: DavSyncSettings = {
   excludedExtensions: [],
   // YANC fork: by default excluded extensions are skipped, not deleted from the server.
   purgeExcludedExtensionsRemote: false,
+  // YANC fork: lazy attachment sync is off by default (sync attachments like any other file).
+  lazySyncAttachments: false,
+  lazyAttachmentFolders: [],
   // YANC fork: hidden files and dotfolders stay device-local out of the box.
   excludeHiddenFiles: true,
   excludeDotFolders: true,
