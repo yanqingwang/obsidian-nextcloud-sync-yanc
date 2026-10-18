@@ -238,6 +238,12 @@
   margin-top: 0;
 }
 
+/* ── Login URL handover modal ────────────────────────────────────────────── */
+/* The read-only login URL spans the full modal width so it stays copyable on narrow phones. */
+.ncs-login-url-input {
+  width: 100%;
+}
+
 /* ── Diff / merge preview modal ──────────────────────────────────────────── */
 .ncs-diff-modal {
   width: min(1100px, 95vw);

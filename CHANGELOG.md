@@ -11,6 +11,14 @@ and folded into the next stable entry.
 
 > A Japanese translation is available at [`CHANGELOG.ja.md`](CHANGELOG.ja.md).
 
+## [1.1.7] - 2026-10-18
+
+### Fixed
+- Plugin review lint: the login-URL input in the handover modal is now styled via a CSS class
+  (`.ncs-login-url-input` in styles.css) instead of a direct `style.width` assignment, and an
+  unnecessary type assertion in the settings-tab copy fallback was removed. No user-facing
+  behavior changes.
+
 ## [1.1.6] - 2026-10-17
 
 ### Fixed

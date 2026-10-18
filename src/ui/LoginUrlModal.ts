@@ -28,10 +28,9 @@ export class LoginUrlModal extends Modal {
         + 'sign in and approve — this device is polling and will finish sign-in automatically.',
     });
 
-    const input = contentEl.createEl('input', { type: 'text' });
+    const input = contentEl.createEl('input', { type: 'text', cls: 'ncs-login-url-input' });
     input.value = loginUrl;
     input.readOnly = true;
-    input.style.width = '100%';
     input.addEventListener('focus', () => input.select());
 
     new Setting(contentEl)

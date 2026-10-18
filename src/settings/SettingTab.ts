@@ -172,7 +172,7 @@ export class NextcloudSyncSettingTab extends PluginSettingTab implements Setting
           const input = setting.controlEl.querySelector('input');
           if (input) {
             input.focus();
-            (input as HTMLInputElement).select();
+            input.select();
             document.execCommand('copy');
           }
         }
