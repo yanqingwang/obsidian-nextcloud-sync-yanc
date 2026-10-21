@@ -1,21 +1,17 @@
 # Nextcloud sync YANC
 
-> [!IMPORTANT]
-> **This is the YANC fork.** It is a fork of
-> [siosig/obsidian-nextcloudsync](https://github.com/siosig/obsidian-nextcloudsync) by Daisuke ITO,
-> rebased onto upstream 1.0.8. Upstream remains the canonical project; this fork exists to carry
-> mobile/Android login resilience, a two-stage connection test, and sync session history.
+> [!NOTE]
+> Nextcloud sync YANC is an independent Obsidian plugin, originally based on
+> [obsidian-nextcloudsync](https://github.com/siosig/obsidian-nextcloudsync) by Daisuke ITO (MIT).
+> It has been developed independently since 1.2.2: mobile/Android login resilience, a two-stage
+> connection test, sync session history, folder/extension exclusion rules, sync-only folder
+> whitelists, lazy attachment sync, and mass-delete safety breakers.
 >
-> **Version numbers below 1.1.0 in this fork are not comparable to upstream.** The fork diverged at
-> 0.7.43 and then released 1.0.0–1.0.9 on its own, so its 1.0.0–1.0.8 are *different codebases* from
-> upstream's releases of the same numbers. 1.1.0 is the first version built on upstream's 1.0.8.
+> It publishes under its own plugin id, `nextcloud-sync-yanc`, separate from the original
+> `nextcloud-sync`. **If you installed a copy before 1.1.1 under the old `nextcloud-sync` id,
+> uninstall that copy first**, or the two will fight over the same folder.
 >
-> This fork publishes under its own plugin id, `nextcloud-sync-yanc`, which is separate from
-> upstream's `nextcloud-sync`. The two can be installed side by side — they keep separate settings
-> and separate vault plugin folders. **If you installed the fork before 1.1.1 under the old
-> `nextcloud-sync` id, uninstall that copy first**, or the two will fight over the same folder.
->
-> **Report fork-specific issues here:** [yanqingwang/obsidian-nextcloud-sync-yanc](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/issues)
+> **Report issues here:** [yanqingwang/obsidian-nextcloud-sync-yanc](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/issues)
 
 **Good news for anyone working across multiple desktops and mobile devices.**
 

@@ -1,21 +1,17 @@
 # Nextcloud sync YANC
 
-> [!IMPORTANT]
-> **これは YANC フォークです。** Daisuke ITO による
-> [siosig/obsidian-nextcloudsync](https://github.com/siosig/obsidian-nextcloudsync) のフォークで、
-> 上流 1.0.8 を基点にリベースしたものです。上流が正式版であり、このフォークはモバイル／Android の
-> サインイン耐障害性、2 段階の接続テスト、同期セッション履歴を提供するために存在します。
+> [!NOTE]
+> Nextcloud sync YANC は独立した Obsidian プラグインです。Daisuke ITO による
+> [obsidian-nextcloudsync](https://github.com/siosig/obsidian-nextcloudsync)（MIT）を起点に、
+> 1.2.2 以降は独自に開発を続けています。モバイル／Android のサインイン耐障害性、2 段階の接続テスト、
+> 同期セッション履歴、フォルダ／拡張子の除外ルール、同期対象フォルダの限定、添付ファイルの遅延同期、
+> 大量削除の安全ブレーカーなどを提供します。
 >
-> **このフォークの 1.1.0 より前のバージョン番号は、上流のバージョン番号と対応しません。** フォークは
-> 0.7.43 で分岐した後に独自に 1.0.0〜1.0.9 をリリースしたため、同番号の上流リリースとは別のコードベースです。
-> 1.1.0 が上流 1.0.8 の上に構築された最初のバージョンです。
->
-> 本フォークは独自のプラグイン id `nextcloud-sync-yanc` で公開しており、上流の `nextcloud-sync` とは
-> 別の id のため、両方を同時にインストールできます（設定と Vault 内のフォルダは別々に管理されます）。
-> **1.1.1 より前に古い `nextcloud-sync` の id でこのフォークをインストールした場合は、先にそれを
+> 独自のプラグイン id `nextcloud-sync-yanc` で公開しており、元の `nextcloud-sync` とは別の id です。
+> **1.1.1 より前に古い `nextcloud-sync` の id でインストールした場合は、先にそれを
 > アンインストールしてください。** 同じフォルダを 2 つが競合するためです。
 >
-> **このフォーク固有の問題の報告先:** [yanqingwang/obsidian-nextcloud-sync-yanc](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/issues)
+> **問題の報告先:** [yanqingwang/obsidian-nextcloud-sync-yanc](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/issues)
 
 **複数のデスクトップ・モバイル端末をまたいで作業しているすべての方へ朗報です。**
 
