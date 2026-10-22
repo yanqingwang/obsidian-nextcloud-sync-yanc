@@ -1,4 +1,4 @@
-import { RemoteFileInfo } from '../types';
+import { RemoteDirInfo, RemoteFileInfo } from '../types';
 
 /**
  * Pull mirror (feature 045): pure classification of what a "mirror this device from the remote"
@@ -36,6 +36,10 @@ export interface MirrorPlan {
   skipCount: number;
   /** The authoritative remote listing (kept for apply + StateDB reconciliation). */
   remoteFiles: RemoteFileInfo[];
+  /** The authoritative remote folder listing (non-excluded applied at build). */
+  remoteDirs: RemoteDirInfo[];
+  /** Remote folders missing locally, to create shallowest-first. */
+  createDirs: string[];
 }
 
 /** The outcome of applying a mirror plan. */
@@ -43,6 +47,7 @@ export interface MirrorResult {
   downloaded: number;
   deleted: number;
   skipped: number;
+  createdDirs: number;
   errors: Array<{ path: string; message: string }>;
 }
 
@@ -63,6 +68,8 @@ function depth(path: string): number {
  * @param isExcluded   predicate for system/user exclusions (isSystemExcluded ∪ excluded folders)
  * @param listingOk    whether the remote listing was obtained completely (false ⇒ abort gate)
  * @param reason       optional reason to attach when listingOk is false
+ * @param remoteDirs   the COMPLETE remote folder listing — the ONLY place empty remote folders are
+ *                     visible; without it they would read as local-only and be planned for deletion
  */
 export function buildMirrorPlan(
   remoteFiles: RemoteFileInfo[],
@@ -71,6 +78,7 @@ export function buildMirrorPlan(
   isExcluded: (path: string) => boolean,
   listingOk: boolean,
   reason: string | null = null,
+  remoteDirs: RemoteDirInfo[] = [],
 ): MirrorPlan {
   // Abort gate: an incomplete/failed listing must never drive deletions.
   if (!listingOk) {
@@ -82,11 +90,14 @@ export function buildMirrorPlan(
       deleteDirs: [],
       skipCount: 0,
       remoteFiles: [],
+      remoteDirs: [],
+      createDirs: [],
     };
   }
 
   const remoteEligible = remoteFiles.filter((r) => !isExcluded(r.path));
   const remoteSet = new Set(remoteEligible.map((r) => r.path));
+  const remoteDirSet = new Set(remoteDirs.map((d) => d.path).filter((p) => !isExcluded(p)));
   const localHashByPath = new Map(localFiles.map((f) => [f.path, f.hash]));
 
   const downloads: RemoteFileInfo[] = [];
@@ -108,12 +119,28 @@ export function buildMirrorPlan(
     .map((f) => f.path)
     .filter((p) => !isExcluded(p) && !remoteSet.has(p));
 
-  // Local-only folders → delete. A folder is kept iff some remote file lives under it.
+  // Local-only folders → delete. A folder is kept iff some remote file lives under it OR the folder
+  // itself exists on the remote (the remote folder listing covers EMPTY folders, which no file
+  // listing can see — deleting such a folder would lose local content the user expects to keep).
   const remoteDirPrefixes = remoteEligible.map((r) => r.path);
+  const remoteDirList = [...remoteDirSet];
   const deleteDirs = localDirs
-    .filter((d) => !isExcluded(d) && !remoteDirPrefixes.some((rp) => rp === d || rp.startsWith(d + '/')))
+    .filter((d) => {
+      if (isExcluded(d)) return false;
+      if (remoteDirSet.has(d)) return false;
+      if (remoteDirPrefixes.some((rp) => rp === d || rp.startsWith(d + '/'))) return false;
+      // A remote folder nested under this one also proves the remote has it.
+      if (remoteDirList.some((rd) => rd.startsWith(d + '/'))) return false;
+      return true;
+    })
     // child→parent so a parent folder is never removed before its children
     .sort((a, b) => depth(b) - depth(a));
+
+  // Remote folders missing locally → create (shallowest first so parents exist before children).
+  const localDirSet = new Set(localDirs);
+  const createDirs = [...remoteDirSet]
+    .filter((d) => !localDirSet.has(d))
+    .sort((a, b) => depth(a) - depth(b));
 
   return {
     ok: true,
@@ -123,5 +150,7 @@ export function buildMirrorPlan(
     deleteDirs,
     skipCount,
     remoteFiles,
+    remoteDirs,
+    createDirs,
   };
 }

@@ -216,7 +216,8 @@ describe('DeletionService.processRemoteDeletion — the scope guard', () => {
       excluded: (p) => p.startsWith('.obsidian/'),
       adapterPaths: ['.obsidian/plugins/other/main.js'],
     });
-    await deletion.processRemoteDeletion('.obsidian/plugins/other/main.js', summary());
+    const outcome = await deletion.processRemoteDeletion('.obsidian/plugins/other/main.js', summary());
+    expect(outcome).toEqual({ status: 'ignored' });
     expect(calls.adapterRemoved).toEqual([]);
     expect(calls.trashed).toEqual([]);
     expect(calls.stateDeletes).toEqual([]);
@@ -237,7 +238,8 @@ describe('DeletionService.processRemoteDeletion — applying it locally', () => 
   it('routes a vault-tracked file through the user\'s own deletion setting', async () => {
     const { deletion, calls } = build({ vaultFiles: { 'note.md': 'file' } });
     const s = summary();
-    await deletion.processRemoteDeletion('note.md', s);
+    const outcome = await deletion.processRemoteDeletion('note.md', s);
+    expect(outcome).toEqual({ status: 'deleted' });
     expect(calls.trashed).toEqual(['note.md']);
     expect(calls.adapterRemoved).toEqual([]); // never a raw remove for tracked content
     expect(s.downloadedCount).toBe(1);
@@ -262,7 +264,8 @@ describe('DeletionService.processRemoteDeletion — applying it locally', () => 
   it('still cleans up state for a file that is already gone locally', async () => {
     const { deletion, calls } = build({ vaultFiles: {}, adapterPaths: [] });
     const s = summary();
-    await deletion.processRemoteDeletion('note.md', s);
+    const outcome = await deletion.processRemoteDeletion('note.md', s);
+    expect(outcome).toEqual({ status: 'absent' });
     expect(calls.trashed).toEqual([]);
     expect(calls.adapterRemoved).toEqual([]);
     expect(s.downloadedCount).toBe(0); // nothing was deleted, so nothing is counted
@@ -271,15 +274,19 @@ describe('DeletionService.processRemoteDeletion — applying it locally', () => 
 
   it('keeps the state entry when the deletion fails, so the next sync retries', async () => {
     const { deletion, calls } = build({ vaultFiles: { 'note.md': 'file' }, trashFails: true });
-    await deletion.processRemoteDeletion('note.md', summary());
+    const outcome = await deletion.processRemoteDeletion('note.md', summary());
+    expect(outcome).toEqual({ status: 'failed', message: 'EACCES' });
     expect(calls.stateDeletes).toEqual([]);
     expect(calls.droppedBase).toEqual([]);
     expect(Notice.instances).toHaveLength(1); // and the user is told
   });
 
   it('does not abort the session for one failed deletion', async () => {
+    // The failure is reported via the outcome (the mirror reads it to avoid counting a success),
+    // never thrown — one bad trash must not strand the rest of the batch.
     const { deletion } = build({ vaultFiles: { 'note.md': 'file' }, trashFails: true });
-    await expect(deletion.processRemoteDeletion('note.md', summary())).resolves.toBeUndefined();
+    const outcome = await deletion.processRemoteDeletion('note.md', summary());
+    expect(outcome.status).toBe('failed');
   });
 });
 

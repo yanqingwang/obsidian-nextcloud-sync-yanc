@@ -22,6 +22,13 @@ import { FileLogger } from '../../util/FileLogger';
 import { isSafeVaultRelativePath } from '../../network/remotePath';
 import { collectSubtreePaths, dropSubtreeTracking } from './subtreeTracking';
 
+/** What a local deletion did; callers that must report failures (the mirror) read it, others ignore it. */
+export type RemoteDeletionOutcome =
+  | { status: 'deleted' }
+  | { status: 'absent' }
+  | { status: 'ignored' }
+  | { status: 'failed'; message: string };
+
 export interface DeletionDeps {
   app: App;
   stateDB: Pick<StateDB, 'deleteFile' | 'getFile' | 'getAllFiles' | 'getAllDirs' | 'deleteDir'>;
@@ -139,8 +146,7 @@ export class DeletionService {
     this.deps.dropCleanSnapshot(path);
   }
 
-  /** The server reports `path` gone. Apply that locally, honouring the user's deletion setting. */
-  async processRemoteDeletion(path: string, summary: SyncSessionSummary): Promise<void> {
+  async processRemoteDeletion(path: string, summary: SyncSessionSummary): Promise<RemoteDeletionOutcome> {
     // Security boundary (centralized at the delete sink): never act on a server-reported deletion
     // for a path the engine treats as out of scope (the Obsidian config folder, other plugins, etc.).
     // A malicious/compromised server could fabricate a REPORT deletion for `.obsidian/...`; without
@@ -149,11 +155,12 @@ export class DeletionService {
     // isSystemExcluded; enforcing it here covers all callers (incremental + full-scan).
     if (this.deps.isSystemExcluded(path)) {
       void this.deps.logger?.log(`delete-local: ignored out-of-scope remote deletion → ${path}`);
-      return;
+      return { status: 'ignored' };
     }
     void this.deps.logger?.log(`delete-local: applying remote deletion → ${path}`);
     const file = this.deps.app.vault.getAbstractFileByPath(path);
     const normalized = normalizePath(path);
+    let trashed = false;
     try {
       if (file instanceof TFile || file instanceof TFolder) {
         // Honor the user's Obsidian "Deleted files" setting (system trash / .trash / permanent
@@ -168,6 +175,7 @@ export class DeletionService {
           for (const p of new Set([path, ...stale.files, ...stale.dirs])) this.deps.markOwnEvent(p);
         }
         await this.deps.app.fileManager.trashFile(file);
+        trashed = true;
         summary.downloadedCount++;
         this.deps.journal.recordHistory(path, 'deleted'); // remote deletion applied locally
       } else if (isSafeVaultRelativePath(path) && await this.deps.app.vault.adapter.exists(normalized)) {
@@ -176,6 +184,7 @@ export class DeletionService {
         // path is safe (no traversal / not absolute), so an attacker-controlled remote path can
         // never reach this raw fs sink even if the boundary guard is ever bypassed.
         await this.deps.app.vault.adapter.remove(normalized);
+        trashed = true;
         summary.downloadedCount++;
         this.deps.journal.recordHistory(path, 'deleted'); // remote deletion applied locally (config dotfile)
       }
@@ -184,7 +193,7 @@ export class DeletionService {
       // Don't abort the whole sync session for one failed deletion; notify and keep the
       // StateDB entry so the next sync retries this path.
       new Notice(`❌ Failed to delete ${path}: ${(err as Error).message}`, 6000);
-      return;
+      return { status: 'failed', message: (err as Error).message };
     }
     // Reached only on success — the catch above returns, keeping every row so the next sync retries.
     this.deps.stateDB.deleteFile(path);
@@ -198,5 +207,6 @@ export class DeletionService {
     if (dropped.files + dropped.dirs > 0) {
       void this.deps.logger?.log(`delete-local: plugin trash — dropped tracking for ${dropped.files} files / ${dropped.dirs} dirs under ${path} (not a local deletion)`);
     }
+    return { status: trashed ? 'deleted' : 'absent' };
   }
 }

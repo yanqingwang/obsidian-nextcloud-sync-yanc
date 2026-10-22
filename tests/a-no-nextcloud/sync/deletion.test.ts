@@ -23,7 +23,11 @@ function makeEngine(opts?: { resolved?: unknown; exists?: boolean; trashRejects?
     app,
     // Feature 086: a trashed folder takes its contents with it, so the deletion sink now enumerates
     // the tracked subtree to forget it too.
-    stateDB: { deleteFile, getAllFiles: () => [], getAllDirs: () => [], deleteDir: jest.fn() },
+    stateDB: {
+      deleteFile, getAllFiles: () => [], getAllDirs: () => [], deleteDir: jest.fn(),
+      // The engine wrapper invalidates the stored root ETag when a local deletion fails.
+      setRemoteRootEtag: jest.fn(),
+    },
     localAdapter: { ignore: jest.fn() },
     // YANC dot toggles OFF: this suite pins the deletion sink mechanics, which the toggles (ON by
     // default) would otherwise shadow for the .obsidian paths used below.
@@ -121,7 +125,7 @@ describe('SyncEngine.processRemoteDeletion', () => {
     const file = new (TFile as unknown as new (p: string) => TFile)('Notes/b.md');
     const { run, deleteFile } = makeEngine({ resolved: file, trashRejects: true });
 
-    await expect(run('Notes/b.md')).resolves.toBeUndefined();
+    await expect(run('Notes/b.md')).resolves.toEqual({ status: 'failed', message: 'boom' });
     expect(deleteFile).not.toHaveBeenCalled();
   });
 });

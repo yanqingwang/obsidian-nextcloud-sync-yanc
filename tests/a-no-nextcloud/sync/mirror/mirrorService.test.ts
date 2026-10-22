@@ -14,17 +14,18 @@ import { DeletionService } from '../../../../src/sync/deletion/DeletionService';
 import { LocalScanner } from '../../../../src/sync/scan/LocalScanner';
 import { RemoteListingSource } from '../../../../src/sync/scan/RemoteListingSource';
 import { MirrorPlan } from '../../../../src/sync/mirrorPlan';
-import { FileState, RemoteFileInfo, SyncSessionSummary } from '../../../../src/types';
+import { FileState, RemoteDirInfo, RemoteFileInfo, SyncSessionSummary } from '../../../../src/types';
 import { IWebDAVClient } from '../../../../src/network/IWebDAVClient';
 
 const remote = (path: string, over: Partial<RemoteFileInfo> = {}): RemoteFileInfo => ({
   path, fileId: `fid-${path}`, checksum: null, etag: '"e"', size: 10, lastModified: 1000, ...over,
 });
+const rdir = (path: string): RemoteDirInfo => ({ path, fileId: `fid-${path}`, etag: null, lastModified: 0 });
 
 function plan(over: Partial<MirrorPlan> = {}): MirrorPlan {
   return {
     ok: true, reason: undefined, skipCount: 0,
-    downloads: [], deleteFiles: [], deleteDirs: [], remoteFiles: [],
+    downloads: [], deleteFiles: [], deleteDirs: [], remoteFiles: [], remoteDirs: [], createDirs: [],
     ...over,
   } as MirrorPlan;
 }
@@ -34,12 +35,14 @@ const fstate = (path: string, localHash = 'h'): FileState => ({
   remoteFileId: null, isConflicted: false,
 });
 
-function build(over: Partial<MirrorDeps> = {}, tracked: FileState[] = []) {
+function build(over: Partial<MirrorDeps> = {}, tracked: FileState[] = [], trackedDirs: string[] = []) {
   const calls = {
     downloaded: [] as string[],
     deleted: [] as string[],
+    mkdir: [] as string[],
     setFile: [] as string[],
     deleteFile: [] as string[],
+    setDir: [] as string[],
     deleteDir: [] as string[],
     droppedBase: [] as string[],
     status: [] as string[],
@@ -51,12 +54,16 @@ function build(over: Partial<MirrorDeps> = {}, tracked: FileState[] = []) {
 
   const client = {
     getFiles: async () => [] as RemoteFileInfo[],
+    getDirectories: async () => [] as RemoteDirInfo[],
     recalcChecksum: async () => null,
   } as unknown as IWebDAVClient;
 
   const deps: MirrorDeps = {
     app: {
-      vault: { getAllFolders: () => [] },
+      vault: {
+        getAllFolders: () => [],
+        adapter: { mkdir: async (p: string) => { calls.mkdir.push(p); } },
+      },
     } as unknown as MirrorDeps['app'],
     localAdapter: {
       stat: async () => ({ size: 10, mtime: 1000 }),
@@ -67,6 +74,8 @@ function build(over: Partial<MirrorDeps> = {}, tracked: FileState[] = []) {
       setFile: (f: FileState) => { calls.setFile.push(f.path); },
       getAllFiles: () => tracked,
       deleteFile: (p: string) => { calls.deleteFile.push(p); },
+      setDir: (d: { path: string }) => { calls.setDir.push(d.path); },
+      getAllDirs: () => trackedDirs.map((path) => ({ path, remoteFileId: null })),
       deleteDir: (p: string) => { calls.deleteDir.push(p); },
       setRemoteRootEtag: () => { /* noop */ },
       setSyncToken: () => { /* noop */ },
@@ -89,6 +98,7 @@ function build(over: Partial<MirrorDeps> = {}, tracked: FileState[] = []) {
     deletion: {
       processRemoteDeletion: async (p: string, s: SyncSessionSummary) => {
         calls.deleted.push(p); s.downloadedCount++;
+        return { status: 'deleted' as const };
       },
     } as unknown as DeletionService,
     localScanner: { collectLocalStats: async () => { /* noop */ } } as unknown as LocalScanner,
@@ -114,7 +124,7 @@ describe('MirrorService.applyRemoteMirror — the refusal gate', () => {
     );
     expect(calls.deleted).toEqual([]);
     expect(calls.downloaded).toEqual([]);
-    expect(result).toEqual({ downloaded: 0, deleted: 0, skipped: 0, errors: [] });
+    expect(result).toEqual({ downloaded: 0, deleted: 0, skipped: 0, createdDirs: 0, errors: [] });
   });
 
   it('reports the plan\'s skip count even on the refusal path', async () => {
@@ -163,6 +173,70 @@ describe('MirrorService.applyRemoteMirror — applying the plan', () => {
     });
     const result = await mirror.applyRemoteMirror(client, plan({ downloads: [remote('huge.bin')] }));
     expect(result.downloaded).toBe(0);
+  });
+
+  it('creates remote folders that are missing locally and tracks them', async () => {
+    const { mirror, client, calls } = build();
+    const result = await mirror.applyRemoteMirror(client, plan({
+      createDirs: ['NewDir', 'NewDir/Sub'],
+      remoteDirs: [rdir('NewDir'), rdir('NewDir/Sub')],
+    }));
+    expect(calls.mkdir).toEqual(['NewDir', 'NewDir/Sub']);
+    expect(result.createdDirs).toBe(2);
+    // Convergence tracks every remote dir, including the ones just created.
+    expect(calls.setDir).toEqual(['NewDir', 'NewDir/Sub']);
+  });
+
+  it('a failed local deletion is an error, NOT a deletion — and its tracking survives convergence', async () => {
+    // Regression: counting a failed trash as "deleted" let step 4b drop the StateDB row, so the
+    // still-present local file read as brand-new next sync and uploaded right back.
+    const { mirror, client, calls } = build({
+      deletion: {
+        processRemoteDeletion: async (p: string) => {
+          calls.deleted.push(p);
+          return p === 'stuck.md'
+            ? { status: 'failed' as const, message: 'EACCES' }
+            : { status: 'deleted' as const };
+        },
+      } as unknown as DeletionService,
+    }, [fstate('stuck.md'), fstate('gone.md')]);
+    const result = await mirror.applyRemoteMirror(client, plan({
+      deleteFiles: ['stuck.md', 'gone.md'],
+      remoteFiles: [],
+    }));
+    expect(result.deleted).toBe(1); // only gone.md
+    expect(result.errors).toEqual([{ path: 'stuck.md', message: 'EACCES' }]);
+    // Convergence dropped the truly-deleted file but kept the stuck one's row for next sync's retry.
+    expect(calls.deleteFile).toEqual(['gone.md']);
+  });
+
+  it('a failed folder deletion keeps its whole subtree out of convergence', async () => {
+    const { mirror, client, calls } = build({
+      deletion: {
+        processRemoteDeletion: async (p: string) => {
+          calls.deleted.push(p);
+          return { status: 'failed' as const, message: 'locked' };
+        },
+      } as unknown as DeletionService,
+    }, [fstate('Dir/a.md')], ['Dir']);
+    await mirror.applyRemoteMirror(client, plan({
+      deleteDirs: ['Dir'],
+      remoteFiles: [], remoteDirs: [],
+    }));
+    // The child file row AND the dir row survive: the folder is still on disk, so forgetting either
+    // would resurrect the subtree as fresh uploads next sync.
+    expect(calls.deleteFile).toEqual([]);
+    expect(calls.deleteDir).toEqual([]);
+  });
+
+  it('drops a tracked dir the remote no longer has, and keeps one whose deletion failed', async () => {
+    const { mirror, client, calls } = build({}, [], ['StaleDir', 'KeptDir']);
+    await mirror.applyRemoteMirror(client, plan({
+      remoteFiles: [],
+      remoteDirs: [rdir('KeptDir')],
+    }));
+    expect(calls.deleteDir).toEqual(['StaleDir']);
+    expect(calls.setDir).toEqual(['KeptDir']);
   });
 });
 
@@ -248,6 +322,8 @@ describe('MirrorService.applyRemoteMirror — converging the state DB', () => {
         setFile: () => { /* noop */ },
         getAllFiles: () => [],
         deleteFile: () => { /* noop */ },
+        setDir: () => { /* noop */ },
+        getAllDirs: () => [],
         deleteDir: () => { /* noop */ },
         setRemoteRootEtag: (e: string | null) => rootEtag.push(e),
         setSyncToken: (t: string) => tokens.push(t),
@@ -305,6 +381,7 @@ describe('MirrorService.planRemoteMirror — a plan that cannot be trusted delet
       enumerateIncludedConfigPaths: async () => ['a.md'],
       connect: async () => ({
         getFiles: async () => [remote('a.md', { checksum: null })],
+        getDirectories: async () => [],
         recalcChecksum: async () => null,
       }) as unknown as IWebDAVClient,
     });

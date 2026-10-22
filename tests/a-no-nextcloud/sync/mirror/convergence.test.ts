@@ -14,12 +14,14 @@ const remote = (path: string): RemoteFileInfo => ({
 
 function plan(o: {
   remote?: string[]; downloaded?: string[]; tracked?: string[]; excluded?: (p: string) => boolean;
+  keepTracked?: string[];
 }) {
   const r = planStateConvergence(
     (o.remote ?? []).map(remote),
     new Set(o.downloaded ?? []),
     o.tracked ?? [],
     o.excluded ?? (() => false),
+    new Set(o.keepTracked ?? []),
   );
   return { toTrack: r.toTrack.map((f) => f.path), toDrop: r.toDrop };
 }
@@ -74,5 +76,30 @@ describe('planStateConvergence', () => {
     // A file can be downloaded without having been tracked before, and vice versa.
     const r = plan({ remote: ['a.md'], downloaded: ['a.md'], tracked: ['b.md'] });
     expect(r).toEqual({ toTrack: [], toDrop: ['b.md'] });
+  });
+
+  it('keeps a tracked file whose local deletion failed, so it is not re-uploaded next sync', () => {
+    // The mirror tried to trash it and failed; the row must survive convergence or the still-present
+    // local file reads as brand-new and uploads right back to the server that does not have it.
+    const r = plan({ remote: [], tracked: ['stuck.md'], keepTracked: ['stuck.md'] });
+    expect(r.toDrop).toEqual([]);
+  });
+
+  it('a kept folder covers its whole subtree, because the failed trash kept every child row', () => {
+    const r = plan({
+      remote: [],
+      tracked: ['Dir', 'Dir/a.md', 'Dir/deep/b.md', 'other.md'],
+      keepTracked: ['Dir'],
+    });
+    expect(r.toDrop).toEqual(['other.md']);
+  });
+
+  it('a kept path does not shield an unrelated tracked file from being dropped', () => {
+    const r = plan({
+      remote: [],
+      tracked: ['stuck.md', 'stale.md'],
+      keepTracked: ['stuck.md'],
+    });
+    expect(r.toDrop).toEqual(['stale.md']);
   });
 });

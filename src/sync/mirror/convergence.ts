@@ -27,17 +27,29 @@ export interface StateConvergence {
  * Excluded paths are left alone on BOTH sides. They are outside the plugin's scope, so a mirror has
  * no business either recording them or forgetting them — the config folder is tracked by its own
  * mechanism, and dropping its entries here would make the next sync re-download it.
+ *
+ * `keepTracked` holds paths whose local deletion FAILED during the apply. Their rows must survive
+ * convergence: dropping one would make the still-present local file read as brand-new next sync and
+ * upload it right back to the server the mirror just said does not have it. A kept folder covers its
+ * whole subtree, because the failed trash kept every child row too.
  */
 export function planStateConvergence(
   remoteFiles: readonly RemoteFileInfo[],
   downloadedPaths: ReadonlySet<string>,
   trackedPaths: readonly string[],
   isExcluded: (path: string) => boolean,
+  keepTracked: ReadonlySet<string> = new Set(),
 ): StateConvergence {
   const eligibleRemote = remoteFiles.filter((r) => !isExcluded(r.path));
   const remoteSet = new Set(eligibleRemote.map((r) => r.path));
+  const kept = (p: string): boolean => {
+    for (const kp of keepTracked) {
+      if (p === kp || p.startsWith(`${kp}/`)) return true;
+    }
+    return false;
+  };
   return {
     toTrack: eligibleRemote.filter((r) => !downloadedPaths.has(r.path)),
-    toDrop: trackedPaths.filter((p) => !isExcluded(p) && !remoteSet.has(p)),
+    toDrop: trackedPaths.filter((p) => !isExcluded(p) && !remoteSet.has(p) && !kept(p)),
   };
 }

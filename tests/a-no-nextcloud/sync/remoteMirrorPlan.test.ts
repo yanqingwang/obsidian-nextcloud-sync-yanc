@@ -1,5 +1,5 @@
 import { buildMirrorPlan, LocalFileEntry } from '../../../src/sync/mirrorPlan';
-import { RemoteFileInfo } from '../../../src/types';
+import { RemoteDirInfo, RemoteFileInfo } from '../../../src/types';
 
 // [SPEC:MIR-1] specs/045-remote-mirror-pull — Pull mirror plan classification (pure).
 // The mirror overwrites this device to match the remote: download what the remote has (or differs),
@@ -9,6 +9,9 @@ import { RemoteFileInfo } from '../../../src/types';
 
 function remote(path: string, checksum: string | null = null): RemoteFileInfo {
   return { path, fileId: null, checksum, etag: null, size: 1, lastModified: 0 };
+}
+function remoteDir(path: string): RemoteDirInfo {
+  return { path, fileId: `fid-${path}`, etag: null, lastModified: 0 };
 }
 function local(path: string, hash: string): LocalFileEntry {
   return { path, hash };
@@ -94,6 +97,51 @@ describe('[SPEC:MIR-1] buildMirrorPlan', () => {
         true,
       );
       expect(plan.deleteDirs).toEqual([]);
+    });
+  });
+
+  describe('remote folder listing (empty folders)', () => {
+    it('keeps a local folder that exists EMPTY on the remote', () => {
+      // A file listing can never see an empty remote folder; only the directory listing proves it.
+      const plan = buildMirrorPlan([], [], ['EmptyDir'], noExclude, true, null, [remoteDir('EmptyDir')]);
+      expect(plan.deleteDirs).toEqual([]);
+      expect(plan.createDirs).toEqual([]);
+    });
+
+    it('still deletes a local folder absent from BOTH remote listings', () => {
+      const plan = buildMirrorPlan([], [], ['GoneDir'], noExclude, true, null, []);
+      expect(plan.deleteDirs).toEqual(['GoneDir']);
+    });
+
+    it('keeps a local folder when the remote has a folder nested under it', () => {
+      // The parent itself may not appear in the dir listing, but a listed child proves it exists.
+      const plan = buildMirrorPlan([], [], ['Parent'], noExclude, true, null, [remoteDir('Parent/Child')]);
+      expect(plan.deleteDirs).toEqual([]);
+    });
+
+    it('creates remote folders that are missing locally, shallowest first', () => {
+      const plan = buildMirrorPlan(
+        [], [], ['Existing'], noExclude, true, null,
+        [remoteDir('New/Deep'), remoteDir('New'), remoteDir('Existing')],
+      );
+      expect(plan.createDirs).toEqual(['New', 'New/Deep']);
+      expect(plan.deleteDirs).toEqual([]);
+    });
+
+    it('never creates or keeps excluded remote folders', () => {
+      const isExcluded = (p: string) => p === '.obsidian' || p.startsWith('.obsidian/');
+      const plan = buildMirrorPlan(
+        [], [], ['.obsidian'], isExcluded, true, null,
+        [remoteDir('.obsidian/plugins'), remoteDir('RealDir')],
+      );
+      expect(plan.createDirs).toEqual(['RealDir']);
+      expect(plan.deleteDirs).toEqual([]);
+    });
+
+    it('carries the remote dirs through to the plan for apply-time tracking', () => {
+      const dirs = [remoteDir('A'), remoteDir('B/C')];
+      const plan = buildMirrorPlan([], [], [], noExclude, true, null, dirs);
+      expect(plan.remoteDirs).toEqual(dirs);
     });
   });
 

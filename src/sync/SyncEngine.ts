@@ -37,7 +37,7 @@ import { isExcludedExtension } from '../util/excludedExtensions';
 import { isLazyAttachmentPath, resolveObsidianAttachmentFolder } from '../util/lazyAttachments';
 import { VersionService } from './versions/VersionService';
 import { remoteIdOf } from './remoteIdentity';
-import { DeletionService } from './deletion/DeletionService';
+import { DeletionService, RemoteDeletionOutcome } from './deletion/DeletionService';
 import { ResolutionService } from './resolution/ResolutionService';
 import { ConflictApplier } from './conflict/ConflictApplier';
 import { DirectoryReconciler } from './directory/DirectoryReconciler';
@@ -748,10 +748,20 @@ export class SyncEngine {
    * planRemoteMirror is what connects. Adding an ensureClient here would introduce a connect step
    * where the code never had one.
    */
-  applyRemoteMirror(
+  async applyRemoteMirror(
     plan: MirrorPlan, onProgress?: (done: number, total: number) => void,
   ): Promise<MirrorResult> {
-    return this.mirror.applyRemoteMirror(this.client!, plan, onProgress);
+    const result = await this.mirror.applyRemoteMirror(this.client!, plan, onProgress);
+    // A mirror rewrites StateDB (downloads, deletions, convergence) outside the sync session's
+    // finally-block save, so it must persist here — otherwise the whole reset lives only in memory
+    // and the next launch re-reads the pre-mirror state.
+    try {
+      await this.opts.stateDB.save();
+    } catch (err) {
+      console.error('[SyncEngine] Mirror persistence failed:', err);
+      void this.opts.logger?.log(`mirror: stateDB save failed — ${(err as Error).message}`, 'error');
+    }
+    return result;
   }
 
   getLastSessionSummary(): SyncSessionSummary | null {
@@ -1418,8 +1428,15 @@ export class SyncEngine {
 
 
   /** @see DeletionService.processRemoteDeletion */
-  private processRemoteDeletion(path: string, summary: SyncSessionSummary): Promise<void> {
-    return this.deletion.processRemoteDeletion(path, summary);
+  private async processRemoteDeletion(path: string, summary: SyncSessionSummary): Promise<RemoteDeletionOutcome> {
+    const outcome = await this.deletion.processRemoteDeletion(path, summary);
+    if (outcome.status === 'failed') {
+      // The local apply failed but the StateDB row survives; a State-rebuilt listing (root-ETag
+      // short-circuit) would read the file as remote-present and never retry the deletion.
+      // Invalidate the stored etag so the next sync really scans and settles it.
+      this.opts.stateDB.setRemoteRootEtag(null);
+    }
+    return outcome;
   }
 
   private async processLocalModifications(
