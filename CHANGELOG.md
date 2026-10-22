@@ -11,6 +11,23 @@ and folded into the next stable entry.
 
 > A Japanese translation is available at [`CHANGELOG.ja.md`](CHANGELOG.ja.md).
 
+## [1.2.3] - 2026-10-22
+
+### Fixed
+- **Mirror from remote deleted empty folders that exist on the server (YANC fork).** Planning listed
+  remote files only, so a folder that exists on the server but holds no files looked local-only and was
+  moved to the trash. The mirror now also lists remote directories, recreates missing folders
+  (including empty ones) shallowest-first, and keeps any local folder the server still has.
+- **A failed local deletion was counted as deleted (YANC fork).** The mirror treated every deletion
+  attempt as a success, so its tracking entry was dropped even when the file could not be removed; the
+  next sync then saw the leftover file as new and re-uploaded it. Deletions now report
+  deleted/absent/ignored/failed, failures keep their tracking so the leftover is not re-uploaded, and
+  only real deletions are counted. The stored root ETag is invalidated on failure so a State-rebuilt
+  listing cannot hide it.
+- **Mirror convergence was not persisted (YANC fork).** The state changes made while mirroring lived
+  only in memory; the mirror now saves the state database before it finishes, so the next sync starts
+  from the converged state.
+
 ## [1.2.2] - 2026-10-18
 
 ### Added

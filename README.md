@@ -50,6 +50,11 @@ This plugin is still young and some behaviour can be rough around the edges. **P
 
 ---
 
+## What's new in 1.2.3
+
+- **Fixed: Mirror from remote could delete empty folders that exist on the server** — planning now lists remote folders too, recreates missing folders (including empty ones) shallowest-first, and never removes a folder the server still has.
+- **Fixed: a failed local deletion was counted as deleted** — the mirror now distinguishes deleted/absent/ignored/failed, keeps tracking for failures so the leftover file is not re-uploaded on the next sync, and saves the converged state before it finishes.
+
 ## What's new in 1.2.2
 
 - **Exclude underscore-prefixed names** — two opt-in toggles in **Settings → Excluded folders** drop `_draft.md`-style files and `_inbox/`-style folders. Both are OFF by default, because underscore names are often real content.
@@ -400,6 +405,11 @@ Obsidian 与 Nextcloud 之间的双向同步插件，**专门为 Nextcloud 打�
 多数「WebDAV 同步」插件只把服务器当成一个文件仓库：比较修改时间、复制文件，然后祈祷不出问题。本插件会调用 Nextcloud 自己的 API（Capabilities、文件 ID、校验和、版本、锁定、Login Flow v2），让同步更安全、更快、更省心；当服务器不支持这些能力时，会自动降级为标准 WebDAV 同步。
 
 > 本插件是独立项目，最初基于 Daisuke ITO 的 [obsidian-nextcloudsync](https://github.com/siosig/obsidian-nextcloudsync)（MIT）。自 1.2.2 起独立发展，插件 id 为 `nextcloud-sync-yanc`。**如果你在 1.1.1 之前安装过旧 id `nextcloud-sync` 的版本，请先卸载旧版**，否则两份插件会争抢同一个目录。
+
+### 1.2.3 修复
+
+- **「从远端镜像」不会再误删远端存在的空文件夹**：计划阶段现在会同时拉取远端目录列表，本地缺失的文件夹（含空文件夹）按层级由浅到深创建，远端仍存在的本地文件夹一律保留。
+- **本地删除失败不再被计为已删除**：删除结果区分为已删除 / 本就不存在 / 已忽略 / 失败；失败的条目会保留追踪，避免下次同步把残留文件当作新文件重新上传，同时镜像结束前会保存收敛后的同步状态。
 
 ### 主要功能
 
