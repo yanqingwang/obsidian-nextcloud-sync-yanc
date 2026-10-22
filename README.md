@@ -1,5 +1,11 @@
 # Nextcloud sync YANC
 
+[English](#english) | [中文](#中文)
+
+---
+
+## English
+
 > [!NOTE]
 > Nextcloud sync YANC is an independent Obsidian plugin, originally based on
 > [obsidian-nextcloudsync](https://github.com/siosig/obsidian-nextcloudsync) by Daisuke ITO (MIT).
@@ -44,40 +50,13 @@ This plugin is still young and some behaviour can be rough around the edges. **P
 
 ---
 
-## What's new in this release (1.1.8)
+## What's new in 1.2.2
 
-- **Extension-based server cleanup:** a new "Delete excluded types from server" toggle. When ON, files on the server whose extension is in your excluded-types list (e.g. `*.js`) are deleted during sync — so excluded file types stop accumulating on the server and drifting between clients. Local files are never touched.
-- **Sync only folders:** a new "Sync only folders" whitelist. Add vault folders to it and only files under those folders are synced (both directions); everything else is skipped. Empty = sync the whole vault. Hard exclusions and the existing "Excluded folders" blacklist still take precedence.
-- **Fixed: on mobile, the login URL could silently never appear** — the handover UI depended on `window.open`'s return value, which some mobile webviews (HarmonyOS) get wrong. Mobile now always shows the handover modal, **and** the one-time login URL stays parked in a selectable "Login URL — waiting for approval" row (with a **Copy URL** button) below the login button until the flow ends, so you can copy it at any time — even after switching apps. Requires Obsidian `1.13.0` or newer.
-
-## What's new in 1.1.5
-
-- **Fixed: on phones where the browser never opens (HarmonyOS), the login URL could not actually be copied.** The fallback showed the URL in a Notice — not selectable on mobile — and its clipboard write ran too late to keep the tap's user activation, so it was refused. The URL now opens in a modal with a selectable text field plus **Copy URL** / **Open in browser** buttons acting on a fresh tap, so both actually succeed.
-
-## What's new in 1.1.4
-
-- **Fixed: "Test connection" could say ✅ while every sync request 404'd.** If the **Server URL** was missing the `/files/<user>/` segment, both existing stages still passed — their URLs are built by *stripping* `/remote.php/...` off the Server URL, so they always land on the host — and the sync then failed with `HTTP 404 (PROPFIND)` on every run. A third stage now checks the Server URL itself and tells you the expected shape. Requires Obsidian `1.13.0` or newer.
-
-## What's new in 1.1.3
-
-- **Restored: hidden files and dotfolders are excluded from sync by default** — the YANC-fork behavior that was lost in the 1.1.0 rebase onto upstream is back. Files whose name starts with `.` (e.g. `.env`, `.gitignore`) and folders whose name starts with `.` together with everything inside them (`.obsidian`, `.git`, `.archive/`, …) stay device-local, so no unnecessary files are synced. Requires Obsidian `1.13.0` or newer.
-- Two new toggles in **Settings → Excluded folders**: *Exclude hidden files* and *Exclude dotfolders*, both ON by default. Turn one off to sync that category again (this also re-enables config-folder sync for `.obsidian` while *Exclude dotfolders* is off).
-
-## What's new in 1.1.2
-
-- **Fixed: the manifest author was wrong** — the 1.1.0 rebase restored upstream's author (`Daisuke ITO`) by mistake; the fork's own author (`yanqingwang`) is back.
-- **Removed `js-yaml` from the package entirely** — Obsidian's review bot flags it even as a dev-only dependency. It was already unused in production code (frontmatter goes through Obsidian's `parseYaml`/`stringifyYaml`); the test doubles now use the `yaml` package.
-- **The README title now matches the manifest name** (*Nextcloud sync YANC*), as required by the community-plugin guidelines. No behaviour change.
-
-## What's new in 1.1.1
-
-- **The plugin id and name now identify the fork** (`nextcloud-sync-yanc` / *Nextcloud sync YANC*), so this fork can be listed in the community directory and installed side by side with upstream. If you installed it before 1.1.1 under the old `nextcloud-sync` id, uninstall that copy first. Your stored app password is unaffected.
-- **1.1.0 rebased the YANC fork onto upstream 1.0.8.** The fork had diverged at 0.7.43 and then released 1.0.0 through 1.0.9 on its own, so its version numbers collided with upstream's releases for the same numbers while missing 72 upstream commits. Any version at or below 1.0.8 in this fork's history is a **different codebase** from the upstream release of that number; 1.1.0 makes the numbering unambiguous again. You now also get upstream's mobile UI entry points, foreground-resume sync, and lock-owner reporting on `HTTP 423`.
-- **Fixed: signing in on Android could fail with "connection to the server was dropped (socket error)"** — a single dropped socket, routine when Android returns to the foreground with a stale socket pool, aborted the sign-in. Sign-in now retries the start (3 attempts), tolerates up to 15 consecutive poll failures with backoff, and times out each request at 30 s instead of hanging. A socket-storm abort now reports its actual cause instead of looking like a sign-in timeout.
-- **Added: "Test connection"** — a two-stage check: an unauthenticated `/status.php` reachability probe, then the stored credentials. This separates a broken network path (a TLS-intercepting proxy, for example) from a wrong or expired app password, which a single failure message could never distinguish. The 401/403 result also notes that Nextcloud deletes app passwords unused for 365 days.
-- **Added: sync session history with "Copy errors"** — the last 5 sessions with their upload/download/conflict/error counts, and a one-tap copy of a failed session's errors, which is the quickest way to turn a real failure into a useful bug report.
-- **Fixed: sign-in now verifies the issued app password** and stores the account's real uid. Nextcloud's Login Flow can return an email address where WebDAV paths need the uid; the resulting path never matched, and the failure used to appear much later as an empty sync. A credential the server refuses is no longer stored.
-- **Fixed: login failure notices repeated the same instruction** — the "sign in with an app password" hint appeared twice in one message, and sync failures were told to re-authenticate, which cannot help a mid-sync network drop.
+- **Exclude underscore-prefixed names** — two opt-in toggles in **Settings → Excluded folders** drop `_draft.md`-style files and `_inbox/`-style folders. Both are OFF by default, because underscore names are often real content.
+- **File type exclusions** — a comma-separated extension list (`js, exe, *.dmg`) keeps matching files out of the sync in both directions, with an optional *Delete excluded types from server* cleanup.
+- **Sync only folders** — a whitelist; when non-empty, only files under those folders are synced.
+- **Lazy attachment sync** — attachments in configured folders are indexed but downloaded only when a note that embeds them is opened.
+- **Fixed: excluded-type server cleanup did not run** when the root ETag was unchanged — the full scan now forces a real listing so the purge actually sees every server-side file.
 
 For the full version history of every release, see the **[changelog](CHANGELOG.md)**.
 
@@ -111,6 +90,10 @@ If you point it at a non-Nextcloud WebDAV server, it automatically disables the 
 - **Trashbin deletes** — remote deletions use the Nextcloud trashbin (recoverable). When a deletion is applied to your local Vault, it follows **your Obsidian "Deleted files" setting** (system trash / move to `.trash` / permanently delete) rather than forcing one behavior; folders and files outside the Vault's tracked notes (e.g. config-folder files) are handled too.
 - **Per-Vault configuration** — each Vault can target a different Nextcloud server / account without state bleeding between them.
 - **Excluded folders** — register Vault-relative folders that are never synced (neither uploaded nor downloaded, and never created on the server). Useful for version-control or tooling folders such as `.git`, and for large media you keep device-local. Matching is a folder-prefix match at a folder boundary, so `Attachments` excludes `Attachments/` and everything under it but not `Attachments-old`. Add or remove entries under **Settings → Excluded folders** (type a path or use the folder picker). Dotfolders (`.git`, the config-folder `plugins/`, the plugin's own state) are already excluded automatically; this list is an additive layer on top.
+- **File type exclusions** — a comma-separated list such as `js, exe, *.dmg` keeps matching files out of the sync in both directions (case-insensitive suffix match). Optionally, *Delete excluded types from server* also removes them from the server so they stop accumulating; local copies are never touched.
+- **Sync only folders** — the opposite of Excluded folders: when the whitelist is non-empty, only files under those folders are synced. Empty (the default) syncs the whole vault.
+- **Lazy attachment sync** — files in the configured attachment folders are indexed but not downloaded until a note that embeds them is opened, so a small vault can reference a large remote attachment collection. New or edited local attachments are still uploaded.
+- **Exclude underscore-prefixed names** — opt-in toggles for `_draft.md`-style files and `_inbox/`-style folders (OFF by default, since underscore names are often real content).
 - **Periodic auto-sync** with a configurable interval (set to `0` for manual-only), plus a **Sync now** command.
 - **Sync on file change (watch mode)** — optionally sync immediately after you create, edit, delete, or rename a file **or folder** (file edits are debounced ~2s after you stop typing; deletes, renames and folder operations propagate right away). The status bar shows when a change is being pushed. Toggle on/off in settings; works alongside the periodic interval. Desktop only.
 - **Resilient retries** — failed files are skipped, queued, and retried next sync with exponential backoff; a dropped Wi-Fi connection resumes automatically.
@@ -189,9 +172,10 @@ one gives you upstream 1.0.8, which does **not** include this fork's Android log
 connection test. The two use different plugin ids, so both can be installed at once.
 
 ### Manual installation
-1. Download `main.js` and `manifest.json` (and `styles.css` if present) from the latest [GitHub Release](../../releases).
-2. Copy them into `<YourVault>/.obsidian/plugins/nextcloud-sync/`.
-3. Reload Obsidian and enable **Nextcloud Sync** under **Settings → Community plugins**.
+1. Download `main.js`, `manifest.json`, and `styles.css` from the latest
+   [GitHub Release](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/releases).
+2. Copy them into `<YourVault>/.obsidian/plugins/nextcloud-sync-yanc/`.
+3. Reload Obsidian and enable **Nextcloud sync YANC** under **Settings → Community plugins**.
 
 ---
 
@@ -381,6 +365,180 @@ Bug reports and ideas are genuinely welcome. The plugin is still maturing, and m
 
 ---
 
+## Development
+
+```bash
+npm install
+npm run dev    # watch and rebuild main.js
+npm run build  # type-check and create the production bundle
+npm test       # fast pure-logic test suites
+```
+
+Release assets are `main.js`, `manifest.json`, and `styles.css`.
+
+---
+
+## Feedback
+
+- GitHub Issues: <https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/issues>
+- Email: **289631530@qq.com**
+
+When reporting a problem, please include your Obsidian version, plugin version, and a screenshot or a short description of the expected result.
+
+---
+
 ## License
 
-[MIT](LICENSE) © Daisuke ITO
+[MIT](LICENSE) — originally by Daisuke ITO; maintained as Nextcloud sync YANC by yanqingwang.
+
+---
+
+## 中文
+
+Obsidian 与 Nextcloud 之间的双向同步插件，**专门为 Nextcloud 打造**，而不只是一个通用 WebDAV 客户端。
+
+多数「WebDAV 同步」插件只把服务器当成一个文件仓库：比较修改时间、复制文件，然后祈祷不出问题。本插件会调用 Nextcloud 自己的 API（Capabilities、文件 ID、校验和、版本、锁定、Login Flow v2），让同步更安全、更快、更省心；当服务器不支持这些能力时，会自动降级为标准 WebDAV 同步。
+
+> 本插件是独立项目，最初基于 Daisuke ITO 的 [obsidian-nextcloudsync](https://github.com/siosig/obsidian-nextcloudsync)（MIT）。自 1.2.2 起独立发展，插件 id 为 `nextcloud-sync-yanc`。**如果你在 1.1.1 之前安装过旧 id `nextcloud-sync` 的版本，请先卸载旧版**，否则两份插件会争抢同一个目录。
+
+### 主要功能
+
+**核心同步**
+- 基于内容哈希的增量同步，只传输发生变化的文件。
+- 原子写入：中途中断的下载不会在库里留下半截文件或 0 字节文件。
+- 通过 Nextcloud 文件 ID 跟踪重命名/移动，移动笔记不会让所有设备重新上传。
+- 远端删除走 Nextcloud 回收站（可恢复）；本地删除遵循 Obsidian 自己的「删除文件」设置。
+- 每个库独立配置，多库之间状态互不干扰。
+- 排除规则：排除文件夹、排除文件类型（如 `js, exe, *.dmg`）、仅在指定文件夹同步、按下划线前缀排除（默认关闭）。
+- 按需同步附件：配置的附件目录只建立索引，打开引用它的笔记时才下载。
+- 定时自动同步、手动「立即同步」，以及可选的「文件变更时同步」（仅桌面端）。
+- 「同步状态」对话框支持按状态过滤；任意文件可右键「与远端比较」，并直接推送或拉取。
+- 「从远端镜像」：把本机库强制对齐远端（下载远端全部内容，删除远端没有的本地文件/文件夹，删除走 Obsidian 回收站）。执行前会显示数量确认。
+- 每设备独立日志、重置本地索引等维护工具。
+
+**冲突安全（不丢内容）**
+- 按扩展名区分「可自动合并文件」与「其他文件」，各自选择冲突策略。
+- 默认对文本使用 diff3 合并（不同区域的编辑会合并，包括 YAML frontmatter）；无法合并的文本写入冲突标记，非文本文件绝不写入标记。
+- 其他文件可选「较新者优先」「较大者优先」「本地优先」「远端优先」；状态栏显示未解决的冲突数。
+- 每次上传都带 `If-Match` 前置条件：别处改过的远端文件会变成冲突，而不是被静默覆盖。
+
+**Nextcloud 增强**
+- Login Flow v2 浏览器授权登录；凭据存放在 Obsidian 密钥库，不以明文写入 `data.json`。
+- 服务器版本历史：可在 Obsidian 内浏览并恢复任意历史版本。
+- 大文件分块上传（可续传、校验和验证），并设有双向的最大文件大小上限。
+- 维护模式检测、Nextcloud 错误信息解析、能力探测（渐进增强）。
+
+### 移动端（iOS / Android）
+
+- 移动端默认关闭自动同步（系统会挂起后台定时器），改用「启动时同步」「回到应用时同步」和手动「立即同步」。
+- 大文件在上下行两个方向都会按上限跳过，避免内存不足崩溃。
+- 移动端没有状态栏，同步结果以通知展示。
+- 移动端不显示 ribbon 栏：两个操作都能在导航栏「打开菜单」中找到；也可以把「立即同步」「同步状态」「从远端镜像」固定到移动工具栏。
+
+### 系统要求
+
+- **Obsidian** `1.13.0` 或更高版本；支持桌面端（Electron）与移动端（iOS / Android）。
+- 推荐 **Nextcloud** Hub 26（server `33`）或更高版本；更老的 Nextcloud 仍可连接并同步，但部分能力会降级。标准 WebDAV 服务器可回退到核心同步。
+- 一个 Nextcloud 账号，可用 **Login Flow v2** 登录，或使用手动创建的应用密码（不要使用主密码）。
+
+### 安装
+
+#### 从第三方插件市场安装
+
+在 **设置 → 第三方插件 → 浏览** 中搜索 **Nextcloud sync YANC**。
+
+#### 手动安装
+
+1. 从 [Releases](https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/releases) 下载所需版本的 `main.js`、`manifest.json`、`styles.css`。
+2. 放入 `<你的库>/.obsidian/plugins/nextcloud-sync-yanc/`。文件夹名必须是 `nextcloud-sync-yanc`（即 manifest 的 `id`），否则 Obsidian 不会加载。
+3. 重新加载 Obsidian，在 **设置 → 第三方插件** 中启用 **Nextcloud sync YANC**。
+
+Android 没有「从 zip 安装」，用文件管理器或同步客户端把三个文件放入上述目录后重启 Obsidian 即可。
+
+#### 通过 BRAT 自动更新
+
+安装 [BRAT](https://github.com/TomBraun/obsidian-brat)，把仓库 `yanqingwang/obsidian-nextcloud-sync-yanc` 添加为 beta 插件。
+
+### 使用
+
+1. 打开 **设置 → Nextcloud Sync**。
+2. 填写 **服务器地址**：完整的 WebDAV 端点 `https://<主机>/remote.php/dav/files/<用户名>/`，**不能只填主机名**（只填 `https://cloud.example.com` 会报 HTTP 405）。可以追加子文件夹，把同步范围限制在某个目录。
+3. 登录：推荐 **浏览器登录**（Login Flow v2）；或填写用户名 + 手动创建的应用密码。
+4. 按需调整同步间隔、文件变更时同步、自动合并设置。
+5. 执行 **立即同步**，或等待定时同步。首次会做全量扫描，之后为增量同步。
+
+库会被同步到 Nextcloud 上以库名命名的文件夹。
+
+#### 添加第二台设备
+
+1. 在新设备上**新建一个空库**，名称与第一台**完全一致**（包括大小写）。
+2. 安装并启用插件，填写**相同的服务器地址**并登录。
+3. 执行 **立即同步**，首次会把远端内容下载下来。
+
+可在 **设置 → Nextcloud Sync** 的 **同步目标（WebDAV）** 只读行核对两台设备是否指向同一位置。请先备份新设备上已有的内容。
+
+### 常见问题
+
+**能否用受限的公开链接分享代替完整账号的应用密码？**
+
+可以。在 Nextcloud 上把单个目录创建为**带用户名/密码的公开链接分享**，然后：
+
+- **服务器地址**：`https://<主机>/public.php/webdav/`
+- **用户名**：分享令牌（分享链接 `/s/` 之后的部分）
+- **应用密码**：该分享的密码
+
+点击 **关联…** 保存应用密码时填写的「ID」只是 Obsidian 本地密钥库中的键名，永远不会发给服务器，可以随意填写（如 `default`）；真正的分享密码填在「值」里。
+
+**出现 `HTTP 423` 是什么原因？**
+
+423 表示文件在 Nextcloud **服务器端**被锁定，不是插件加的锁。常见原因是 Nextcloud Text 网页编辑器留下的锁（没有超时，异常关闭标签页后可能一直存在），也可能是别人正在编辑同一文件。插件不会自动解锁（盲目解锁可能覆盖他人正在进行的编辑）：请关闭持有锁的会话，或让管理员清理。
+
+### 设置默认值
+
+设置页刻意保持精简：只显示服务器地址、登录、同步文件夹、同步间隔、仅 Wi-Fi、排除文件夹、配置文件夹开关和日志开关，其余选项为固定值或按平台自动推导。
+
+| 设置 | 桌面端 | 移动端 |
+|---|---|---|
+| 同步间隔 | 15 分钟 | 15 分钟（禁用，用「立即同步」或「启动时同步」） |
+| 仅 Wi-Fi 同步 | 关 | 开 |
+| 同步配置文件夹 | 关 | 关 |
+| 可自动合并的文件类型 | md, txt, cpp, py, c, h, hpp, rs, go, ts, js, java, sh | 同上 |
+| 可自动合并文件策略 | 合并 | 合并 |
+| 其他文件策略 | 较新者优先 | 较新者优先 |
+| 启用日志 | 关 | 关 |
+
+固定值：网络超时 30 秒、分块阈值 50 MB（桌面）/ 20 MB（移动）、分块上传开启；丢失更新保护由 `If-Match` 提供，不使用文件锁定。
+
+按平台推导：文件变更时同步（桌面开 / 移动关）、最大文件大小（桌面不限 / 移动 20 MB）、网络并发（按可用内存自动推导，约 16 / 8 / 4 / 3）。
+
+### 隐私与安全
+
+- 不收集任何遥测数据；唯一的网络流量就是与你自己服务器之间的同步。
+- 凭据存放在 Obsidian 的密钥库，不会以明文写入 `data.json`；从不使用也不存储主密码。
+- `.obsidian/` 默认不同步；社区插件目录与插件自己的同步状态库**永远不同步**。
+
+### 开发
+
+```bash
+npm install
+npm run dev    # 监听并重新构建 main.js
+npm run build  # 类型检查并生成生产构建
+npm test       # 快速纯逻辑测试
+```
+
+发布资源为 `main.js`、`manifest.json` 和 `styles.css`。
+
+### 反馈
+
+- GitHub Issues：<https://github.com/yanqingwang/obsidian-nextcloud-sync-yanc/issues>
+- 邮箱：**289631530@qq.com**
+
+反馈问题时，请尽量附上 Obsidian 版本、插件版本，以及截图或预期结果说明。
+
+### 许可证
+
+[MIT](LICENSE) —— 原始作者 Daisuke ITO，现以 Nextcloud sync YANC 分支由 yanqingwang 维护。
+
+---
+
+[English](#english) | [中文](#中文)
